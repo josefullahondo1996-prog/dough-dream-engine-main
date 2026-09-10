@@ -22,6 +22,7 @@ import CashRegister from "./pages/CashRegister";
 import AuditLog from "./pages/AuditLog";
 import QrCodes from "./pages/QrCodes";
 import DigitalMenu from "./pages/DigitalMenu";
+import ServiceRequests from "./pages/ServiceRequests";
 import PlaceholderPage from "./components/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
@@ -50,7 +51,7 @@ const App = () => (
             <Route path="/areas" element={<Areas />} />
             <Route path="/mesas" element={<Tables />} />
             <Route path="/codigos-qr" element={<QrCodes />} />
-            <Route path="/solicitudes" element={<PlaceholderPage title="Solicitudes de Camarero" description="Gestiona las solicitudes de atención de los clientes." />} />
+            <Route path="/solicitudes" element={<ServiceRequests />} />
             <Route path="/reservaciones" element={<PlaceholderPage title="Reservaciones" description="Administra las reservaciones de mesas y eventos especiales." />} />
             <Route path="/ordenes" element={<Orders />} />
             <Route path="/facturacion" element={<Billing />} />

@@ -544,6 +544,12 @@ export type Database = {
         }
         Relationships: []
       }
+      service_requests: {
+        Row: { attended_at: string | null; created_at: string; id: string; request_type: string; restaurant_id: string; status: string; table_id: string }
+        Insert: { attended_at?: string | null; created_at?: string; id?: string; request_type?: string; restaurant_id: string; status?: string; table_id: string }
+        Update: { attended_at?: string | null; created_at?: string; id?: string; request_type?: string; restaurant_id?: string; status?: string; table_id?: string }
+        Relationships: []
+      }
       restaurant_tables: {
         Row: {
           area_id: string | null
@@ -593,6 +599,7 @@ export type Database = {
       generate_invoice_number: { Args: never; Returns: string }
       is_authenticated_staff: { Args: never; Returns: boolean }
       submit_public_table_order: { Args: { p_customer_name: string; p_items: Json; p_notes: string; p_table_id: string }; Returns: { order_id: string; total: number }[] }
+      submit_service_request: { Args: { p_request_type: string; p_table_id: string }; Returns: string }
     }
     Enums: {
       order_status:

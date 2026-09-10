@@ -21,7 +21,10 @@ export default function QrCodes() {
 
   useEffect(() => { void loadTables(); }, [loadTables]);
 
-  const getMenuUrl = (tableId: string) => `${window.location.origin}/menu/${restaurant?.slug}?mesa=${tableId}`;
+  const getMenuUrl = (tableId: string) => {
+    const baseUrl = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/+$/, "");
+    return `${baseUrl}/menu/${encodeURIComponent(restaurant?.slug ?? "")}?mesa=${encodeURIComponent(tableId)}`;
+  };
 
   const copyUrl = async (tableId: string) => {
     const menuUrl = getMenuUrl(tableId);
