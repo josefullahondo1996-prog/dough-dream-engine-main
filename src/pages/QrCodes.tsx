@@ -22,8 +22,11 @@ export default function QrCodes() {
   useEffect(() => { void loadTables(); }, [loadTables]);
 
   const getMenuUrl = (tableId: string) => {
-    const baseUrl = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/+$/, "");
-    return `${baseUrl}/menu/${encodeURIComponent(restaurant?.slug ?? "")}?mesa=${encodeURIComponent(tableId)}`;
+    const configuredUrl = import.meta.env.VITE_PUBLIC_APP_URL?.trim();
+    const baseUrl = (configuredUrl || window.location.origin).replace(/\/+$/, "");
+    const slug = restaurant?.slug?.trim();
+    if (!slug) return "";
+    return `${baseUrl}/menu/${encodeURIComponent(slug)}?mesa=${encodeURIComponent(tableId)}`;
   };
 
   const copyUrl = async (tableId: string) => {
@@ -36,12 +39,21 @@ export default function QrCodes() {
 
   if (!restaurant) return <div className="py-16 text-center text-muted-foreground">Cargando restaurante...</div>;
 
+  const publicAppUrl = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/+$/, "");
+  const isLocalUrl = /(^|\/\/)(localhost|127\.0\.0\.1)(:\d+)?($|\/)/.test(publicAppUrl);
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Menú digital</h1>
         <p className="mt-1 text-sm text-muted-foreground">Los clientes escanean este código para consultar tu carta actualizada.</p>
       </div>
+
+      {isLocalUrl && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800">
+          Los códigos QR están usando una dirección local ({publicAppUrl}). Configura <strong>VITE_PUBLIC_APP_URL</strong> con la URL pública de tu aplicación antes de imprimirlos.
+        </div>
+      )}
 
       {isLoading ? <div className="py-16 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></div> : tables.length === 0 ? <div className="rounded-xl border border-border bg-card py-16 text-center text-muted-foreground">Crea una mesa para generar su código QR automáticamente.</div> : <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{tables.map((table) => { const menuUrl = getMenuUrl(table.id); const copied = copiedTableId === table.id; return <article key={table.id} className="rounded-xl border border-border bg-card p-5 text-center shadow-card"><div className="mb-3 flex items-center justify-center gap-2 font-semibold"><QrCode className="h-5 w-5 text-primary" />{table.name}</div><div className="mb-4 flex justify-center rounded-xl bg-white p-4"><QRCodeSVG value={menuUrl} size={170} includeMargin level="M" aria-label={`Código QR de ${table.name}`} /></div><p className="mb-3 text-xs text-muted-foreground">Este QR abre el menú asociado a esta mesa.</p><div className="flex justify-center gap-2"><button onClick={() => void copyUrl(table.id)} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}{copied ? "Copiado" : "Copiar"}</button><a href={menuUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground"><ExternalLink className="h-3.5 w-3.5" />Abrir</a></div></article>; })}</div>}
     </div>
