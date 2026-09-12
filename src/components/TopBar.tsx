@@ -11,6 +11,8 @@ interface TopBarProps {
 
 type NotificationRequest = Tables<"service_requests"> & { tableName: string };
 
+let notificationAudioContext: AudioContext | null = null;
+
 const requestLabels: Record<string, string> = {
   camarero: "Llamar al camarero",
   cuenta: "Solicitar la cuenta",
@@ -21,26 +23,27 @@ function playNotificationSound() {
   const AudioContextClass = window.AudioContext;
   if (!AudioContextClass) return;
 
-  const audioContext = new AudioContextClass();
-  const now = audioContext.currentTime;
-  const notes = [880, 1174, 1568];
+  notificationAudioContext ??= new AudioContextClass();
+  void notificationAudioContext.resume().then(() => {
+    const audioContext = notificationAudioContext;
+    if (!audioContext) return;
 
-  notes.forEach((frequency, index) => {
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    const start = now + index * 0.14;
-    oscillator.type = "sine";
-    oscillator.frequency.value = frequency;
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(0.24, start + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.32);
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-    oscillator.start(start);
-    oscillator.stop(start + 0.34);
+    const now = audioContext.currentTime;
+    [880, 1174, 1568].forEach((frequency, index) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      const start = now + index * 0.14;
+      oscillator.type = "sine";
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.24, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.32);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.34);
+    });
   });
-
-  window.setTimeout(() => void audioContext.close(), 900);
 }
 
 export default function TopBar({ collapsed }: TopBarProps) {
