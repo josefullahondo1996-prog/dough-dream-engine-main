@@ -55,6 +55,7 @@ export default function TopBar({ collapsed }: TopBarProps) {
     if (!restaurant) return;
 
     let isMounted = true;
+    const latestOrderId = { current: null as string | null };
     const loadNotifications = async () => {
       const [requestResult, tableResult] = await Promise.all([
         supabase
@@ -72,7 +73,26 @@ export default function TopBar({ collapsed }: TopBarProps) {
       setNotifications((requestResult.data ?? []).map((request) => ({ ...request, tableName: tableNames[request.table_id] || "Mesa" })));
     };
 
+    const checkLatestOrder = async (playSound: boolean) => {
+      const { data } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("restaurant_id", restaurant.id)
+        .eq("status", "pendiente")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!isMounted) return;
+      if (latestOrderId.current && data?.id && data.id !== latestOrderId.current && playSound) {
+        playNotificationSound();
+      }
+      latestOrderId.current = data?.id ?? null;
+    };
+
     void loadNotifications();
+    void checkLatestOrder(false);
+    const orderPolling = window.setInterval(() => void checkLatestOrder(true), 3000);
 
     const channel = supabase
       .channel(`staff-notifications-${restaurant.id}`)
@@ -90,6 +110,7 @@ export default function TopBar({ collapsed }: TopBarProps) {
 
     return () => {
       isMounted = false;
+      window.clearInterval(orderPolling);
       void supabase.removeChannel(channel);
     };
   }, [restaurant]);
