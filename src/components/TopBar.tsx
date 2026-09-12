@@ -56,6 +56,7 @@ export default function TopBar({ collapsed }: TopBarProps) {
 
     let isMounted = true;
     const latestOrderId = { current: null as string | null };
+    const hasCheckedOrders = { current: false };
     const loadNotifications = async () => {
       const [requestResult, tableResult] = await Promise.all([
         supabase
@@ -84,10 +85,11 @@ export default function TopBar({ collapsed }: TopBarProps) {
         .maybeSingle();
 
       if (!isMounted) return;
-      if (latestOrderId.current && data?.id && data.id !== latestOrderId.current && playSound) {
+      if (hasCheckedOrders.current && data?.id !== latestOrderId.current && playSound) {
         playNotificationSound();
       }
       latestOrderId.current = data?.id ?? null;
+      hasCheckedOrders.current = true;
     };
 
     void loadNotifications();
@@ -96,7 +98,10 @@ export default function TopBar({ collapsed }: TopBarProps) {
 
     const channel = supabase
       .channel(`staff-notifications-${restaurant.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` }, () => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` }, (payload) => {
+        const newOrder = payload.new as { id?: string };
+        latestOrderId.current = newOrder.id ?? latestOrderId.current;
+        hasCheckedOrders.current = true;
         playNotificationSound();
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "service_requests", filter: `restaurant_id=eq.${restaurant.id}` }, () => {
