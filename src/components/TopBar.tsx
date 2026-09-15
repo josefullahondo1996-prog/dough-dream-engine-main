@@ -1,18 +1,14 @@
-import { useEffect, useState } from "react";
-import { Bell, Maximize2, Search, ShoppingCart, User } from "lucide-react";
+import { Search, ShoppingCart, User, Bell, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import { useServiceRequests } from "@/hooks/useServiceRequests";
+import { useRealtimeNotifications } from "@/hooks/useRealtimeNotifications";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface TopBarProps {
   collapsed: boolean;
 }
-
-type NotificationRequest = Tables<"service_requests"> & { tableName: string };
-
-let notificationAudioContext: AudioContext | null = null;
-let isAudioUnlocked = false;
 
 const requestLabels: Record<string, string> = {
   camarero: "Llamar al camarero",
@@ -20,112 +16,13 @@ const requestLabels: Record<string, string> = {
   ayuda: "Solicitar ayuda",
 };
 
-function unlockAudio() {
-  if (isAudioUnlocked) return;
-  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-  if (!AudioContextClass) return;
-
-  notificationAudioContext ??= new AudioContextClass();
-  if (notificationAudioContext.state === "suspended") {
-    void notificationAudioContext.resume();
-  }
-  
-  // Play a silent oscillator to fully unlock on iOS/Safari
-  const oscillator = notificationAudioContext.createOscillator();
-  const gain = notificationAudioContext.createGain();
-  gain.gain.value = 0;
-  oscillator.connect(gain);
-  gain.connect(notificationAudioContext.destination);
-  oscillator.start(0);
-  oscillator.stop(0.01);
-
-  isAudioUnlocked = true;
-  document.removeEventListener("click", unlockAudio);
-  document.removeEventListener("touchstart", unlockAudio);
-  document.removeEventListener("keydown", unlockAudio);
-}
-
-if (typeof document !== "undefined") {
-  document.addEventListener("click", unlockAudio);
-  document.addEventListener("touchstart", unlockAudio);
-  document.addEventListener("keydown", unlockAudio);
-}
-
-function playNotificationSound() {
-  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-  if (!AudioContextClass) return;
-
-  notificationAudioContext ??= new AudioContextClass();
-  void notificationAudioContext.resume().then(() => {
-    const audioContext = notificationAudioContext;
-    if (!audioContext) return;
-
-    const now = audioContext.currentTime;
-    // Play a pleasant double-chime for orders
-    [880, 1174, 1568].forEach((frequency, index) => {
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      const start = now + index * 0.12;
-      oscillator.type = "sine";
-      oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.3, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
-      oscillator.start(start);
-      oscillator.stop(start + 0.4);
-    });
-  });
-}
-
 export default function TopBar({ collapsed }: TopBarProps) {
   const { profile, user, restaurant, signOut } = useAuth();
-  const [notifications, setNotifications] = useState<NotificationRequest[]>([]);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-
-  useEffect(() => {
-    if (!restaurant) return;
-
-    let isMounted = true;
-    const loadNotifications = async () => {
-      const [requestResult, tableResult] = await Promise.all([
-        supabase
-          .from("service_requests")
-          .select("*")
-          .eq("restaurant_id", restaurant.id)
-          .eq("status", "pendiente")
-          .order("created_at", { ascending: false })
-          .limit(10),
-        supabase.from("restaurant_tables").select("id, name").eq("restaurant_id", restaurant.id),
-      ]);
-
-      if (!isMounted) return;
-      const tableNames = Object.fromEntries((tableResult.data ?? []).map((table) => [table.id, table.name]));
-      setNotifications((requestResult.data ?? []).map((request) => ({ ...request, tableName: tableNames[request.table_id] || "Mesa" })));
-    };
-
-    void loadNotifications();
-
-    const channel = supabase
-      .channel(`staff-notifications-${restaurant.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` }, () => {
-        playNotificationSound();
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "service_requests", filter: `restaurant_id=eq.${restaurant.id}` }, () => {
-        playNotificationSound();
-        void loadNotifications();
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "service_requests", filter: `restaurant_id=eq.${restaurant.id}` }, () => {
-        void loadNotifications();
-      })
-      .subscribe();
-
-    return () => {
-      isMounted = false;
-      void supabase.removeChannel(channel);
-    };
-  }, [restaurant]);
+  const { data: notifications = [] } = useServiceRequests();
+  const { playNotificationSound } = useNotificationSound();
+  
+  // Activa las suscripciones en tiempo real
+  useRealtimeNotifications();
 
   return (
     <header
@@ -163,40 +60,43 @@ export default function TopBar({ collapsed }: TopBarProps) {
           </span>
         </button>
 
-        {/* Notifications */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setIsNotificationsOpen((current) => !current)}
-            aria-label="Abrir solicitudes"
-            className="relative rounded-lg p-2.5 transition-colors hover:bg-secondary"
-          >
-          <Bell className="w-5 h-5 text-muted-foreground" />
-            {notifications.length > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-success text-[10px] font-bold text-success-foreground">{notifications.length}</span>}
-          </button>
-
-          {isNotificationsOpen && (
-            <div className="absolute right-0 top-12 z-50 w-80 rounded-xl border border-border bg-card p-3 shadow-lg">
-              <div className="flex items-center justify-between border-b border-border px-2 pb-2">
-                <p className="text-sm font-semibold text-foreground">Solicitudes pendientes</p>
-                <span className="text-xs text-muted-foreground">{notifications.length}</span>
-              </div>
-              {notifications.length === 0 ? (
-                <p className="px-2 py-6 text-center text-sm text-muted-foreground">No hay solicitudes nuevas.</p>
-              ) : (
-                <div className="max-h-72 overflow-y-auto">
-                  {notifications.map((notification) => (
-                    <a key={notification.id} href="/solicitudes" className="block border-b border-border px-2 py-3 last:border-0 hover:bg-secondary">
-                      <p className="text-sm font-medium text-foreground">{notification.tableName}</p>
-                      <p className="mt-0.5 text-xs text-warning">{requestLabels[notification.request_type] || "Solicitud"}</p>
-                    </a>
-                  ))}
-                </div>
+        {/* Notifications Popover */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              aria-label="Abrir solicitudes"
+              className="relative rounded-lg p-2.5 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Bell className="w-5 h-5 text-muted-foreground" />
+              {notifications.length > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-success text-[10px] font-bold text-success-foreground">
+                  {notifications.length}
+                </span>
               )}
-              <a href="/solicitudes" className="mt-2 block rounded-lg bg-secondary px-3 py-2 text-center text-xs font-medium text-secondary-foreground">Ver todas las solicitudes</a>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-3" align="end">
+            <div className="flex items-center justify-between border-b border-border px-2 pb-2">
+              <p className="text-sm font-semibold text-foreground">Solicitudes pendientes</p>
+              <span className="text-xs text-muted-foreground">{notifications.length}</span>
             </div>
-          )}
-        </div>
+            {notifications.length === 0 ? (
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">No hay solicitudes nuevas.</p>
+            ) : (
+              <div className="max-h-72 overflow-y-auto">
+                {notifications.map((notification) => (
+                  <a key={notification.id} href="/solicitudes" className="block border-b border-border px-2 py-3 last:border-0 hover:bg-secondary">
+                    <p className="text-sm font-medium text-foreground">{notification.tableName}</p>
+                    <p className="mt-0.5 text-xs text-warning">{requestLabels[notification.request_type] || "Solicitud"}</p>
+                  </a>
+                ))}
+              </div>
+            )}
+            <a href="/solicitudes" className="mt-2 block rounded-lg bg-secondary px-3 py-2 text-center text-xs font-medium text-secondary-foreground hover:bg-secondary/80">
+              Ver todas las solicitudes
+            </a>
+          </PopoverContent>
+        </Popover>
 
         {/* Fullscreen */}
         <button className="p-2.5 rounded-lg hover:bg-secondary transition-colors hidden md:flex">
