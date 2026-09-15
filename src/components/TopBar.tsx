@@ -12,6 +12,7 @@ interface TopBarProps {
 type NotificationRequest = Tables<"service_requests"> & { tableName: string };
 
 let notificationAudioContext: AudioContext | null = null;
+let isAudioUnlocked = false;
 
 const requestLabels: Record<string, string> = {
   camarero: "Llamar al camarero",
@@ -19,8 +20,39 @@ const requestLabels: Record<string, string> = {
   ayuda: "Solicitar ayuda",
 };
 
+function unlockAudio() {
+  if (isAudioUnlocked) return;
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextClass) return;
+
+  notificationAudioContext ??= new AudioContextClass();
+  if (notificationAudioContext.state === "suspended") {
+    void notificationAudioContext.resume();
+  }
+  
+  // Play a silent oscillator to fully unlock on iOS/Safari
+  const oscillator = notificationAudioContext.createOscillator();
+  const gain = notificationAudioContext.createGain();
+  gain.gain.value = 0;
+  oscillator.connect(gain);
+  gain.connect(notificationAudioContext.destination);
+  oscillator.start(0);
+  oscillator.stop(0.01);
+
+  isAudioUnlocked = true;
+  document.removeEventListener("click", unlockAudio);
+  document.removeEventListener("touchstart", unlockAudio);
+  document.removeEventListener("keydown", unlockAudio);
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("click", unlockAudio);
+  document.addEventListener("touchstart", unlockAudio);
+  document.addEventListener("keydown", unlockAudio);
+}
+
 function playNotificationSound() {
-  const AudioContextClass = window.AudioContext;
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
   if (!AudioContextClass) return;
 
   notificationAudioContext ??= new AudioContextClass();
@@ -29,19 +61,20 @@ function playNotificationSound() {
     if (!audioContext) return;
 
     const now = audioContext.currentTime;
+    // Play a pleasant double-chime for orders
     [880, 1174, 1568].forEach((frequency, index) => {
       const oscillator = audioContext.createOscillator();
       const gain = audioContext.createGain();
-      const start = now + index * 0.14;
+      const start = now + index * 0.12;
       oscillator.type = "sine";
       oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.24, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.32);
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.3, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
       oscillator.connect(gain);
       gain.connect(audioContext.destination);
       oscillator.start(start);
-      oscillator.stop(start + 0.34);
+      oscillator.stop(start + 0.4);
     });
   });
 }
@@ -55,8 +88,6 @@ export default function TopBar({ collapsed }: TopBarProps) {
     if (!restaurant) return;
 
     let isMounted = true;
-    const latestOrderId = { current: null as string | null };
-    const hasCheckedOrders = { current: false };
     const loadNotifications = async () => {
       const [requestResult, tableResult] = await Promise.all([
         supabase
@@ -74,34 +105,11 @@ export default function TopBar({ collapsed }: TopBarProps) {
       setNotifications((requestResult.data ?? []).map((request) => ({ ...request, tableName: tableNames[request.table_id] || "Mesa" })));
     };
 
-    const checkLatestOrder = async (playSound: boolean) => {
-      const { data } = await supabase
-        .from("orders")
-        .select("id")
-        .eq("restaurant_id", restaurant.id)
-        .eq("status", "pendiente")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!isMounted) return;
-      if (hasCheckedOrders.current && data?.id !== latestOrderId.current && playSound) {
-        playNotificationSound();
-      }
-      latestOrderId.current = data?.id ?? null;
-      hasCheckedOrders.current = true;
-    };
-
     void loadNotifications();
-    void checkLatestOrder(false);
-    const orderPolling = window.setInterval(() => void checkLatestOrder(true), 3000);
 
     const channel = supabase
       .channel(`staff-notifications-${restaurant.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` }, (payload) => {
-        const newOrder = payload.new as { id?: string };
-        latestOrderId.current = newOrder.id ?? latestOrderId.current;
-        hasCheckedOrders.current = true;
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` }, () => {
         playNotificationSound();
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "service_requests", filter: `restaurant_id=eq.${restaurant.id}` }, () => {
@@ -115,7 +123,6 @@ export default function TopBar({ collapsed }: TopBarProps) {
 
     return () => {
       isMounted = false;
-      window.clearInterval(orderPolling);
       void supabase.removeChannel(channel);
     };
   }, [restaurant]);
@@ -127,7 +134,7 @@ export default function TopBar({ collapsed }: TopBarProps) {
         collapsed ? "left-[68px]" : "left-[250px]"
       )}
     >
-      {/* Left: Search */}
+      {/* Left: Search & Test */}
       <div className="flex items-center gap-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -137,6 +144,13 @@ export default function TopBar({ collapsed }: TopBarProps) {
             className="pl-9 pr-4 py-2 text-sm bg-secondary rounded-lg border-none outline-none focus:ring-2 focus:ring-primary/30 w-64 text-foreground placeholder:text-muted-foreground"
           />
         </div>
+        <button 
+          onClick={playNotificationSound}
+          className="text-xs bg-primary/20 text-primary px-3 py-1.5 rounded-lg font-medium hover:bg-primary/30 transition-colors"
+          title="Botón temporal para probar el sonido"
+        >
+          Probar Sonido
+        </button>
       </div>
 
       {/* Right: Actions */}
