@@ -74,9 +74,9 @@ const App = () => (
             <Route path="/debidos" element={<PlaceholderPage title="Debidos" description="Controla las cuentas por cobrar y pagos pendientes." />} />
             <Route path="/auditoria" element={<AuditLog />} />
             <Route path="/informe-ventas" element={<Reports />} />
-            <Route path="/informe-articulos" element={<PlaceholderPage title="Informe de Artículos" description="Reportes detallados de rendimiento por artículo." />} />
-            <Route path="/informe-categorias" element={<PlaceholderPage title="Informe de Categorías" description="Análisis de rendimiento por categoría de producto." />} />
-            <Route path="/informe-gastos" element={<PlaceholderPage title="Informe de Gastos" description="Reportes detallados de gastos operativos." />} />
+            <Route path="/informe-articulos" element={<Reports />} />
+            <Route path="/informe-categorias" element={<Reports />} />
+            <Route path="/informe-gastos" element={<Reports />} />
             <Route path="/ajustes" element={<Settings />} />
               </Route>
             </Route>
