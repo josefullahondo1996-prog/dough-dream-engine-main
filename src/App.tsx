@@ -29,6 +29,9 @@ const QrCodes = lazy(() => import("./pages/QrCodes"));
 const DigitalMenu = lazy(() => import("./pages/DigitalMenu"));
 const ServiceRequests = lazy(() => import("./pages/ServiceRequests"));
 const Reservaciones = lazy(() => import("./pages/Reservaciones"));
+const MenusPage = lazy(() => import("./pages/MenusPage"));
+const ModificadoresPage = lazy(() => import("./pages/ModificadoresPage"));
+const PagosPage = lazy(() => import("./pages/PagosPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Auth = lazy(() => import("./pages/Auth"));
 
@@ -52,10 +55,10 @@ const App = () => (
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/menus" element={<PlaceholderPage title="Menús" description="Gestiona los menús de tu restaurante. Crea menús para desayuno, almuerzo, cena y más." />} />
+            <Route path="/menus" element={<MenusPage />} />
             <Route path="/menu-items" element={<MenuItems />} />
             <Route path="/categorias" element={<Categories />} />
-            <Route path="/modificadores" element={<PlaceholderPage title="Modificadores" description="Configura modificadores como extras, tamaños y opciones personalizadas." />} />
+            <Route path="/modificadores" element={<ModificadoresPage />} />
             <Route path="/areas" element={<Areas />} />
             <Route path="/mesas" element={<Tables />} />
             <Route path="/codigos-qr" element={<QrCodes />} />
@@ -66,12 +69,12 @@ const App = () => (
             <Route path="/kot" element={<KOT />} />
             <Route path="/clientes" element={<Clients />} />
             <Route path="/personal" element={<Personal />} />
-            <Route path="/delivery" element={<PlaceholderPage title="Ejecutivo de Entrega" description="Administra los repartidores y sus asignaciones de delivery." />} />
+            <Route path="/delivery" element={<Personal />} />
             <Route path="/gastos" element={<Expenses />} />
             <Route path="/categorias-gastos" element={<ExpenseCategories />} />
             <Route path="/caja" element={<CashRegister />} />
-            <Route path="/pagos" element={<PlaceholderPage title="Pagos" description="Gestiona todos los pagos recibidos y métodos de pago." />} />
-            <Route path="/debidos" element={<PlaceholderPage title="Debidos" description="Controla las cuentas por cobrar y pagos pendientes." />} />
+            <Route path="/pagos" element={<PagosPage />} />
+            <Route path="/debidos" element={<PagosPage />} />
             <Route path="/auditoria" element={<AuditLog />} />
             <Route path="/informe-ventas" element={<Reports />} />
             <Route path="/informe-articulos" element={<Reports />} />
