@@ -10,7 +10,37 @@ const fallbackEmoji = "🍽️";
 
 const isImageUrl = (val?: string | null) => {
   if (!val) return false;
-  return val.startsWith("http://") || val.startsWith("https://") || val.startsWith("data:image/") || val.startsWith("/");
+  const clean = val.trim();
+  return (
+    clean.startsWith("http://") ||
+    clean.startsWith("https://") ||
+    clean.startsWith("data:image/") ||
+    clean.startsWith("/") ||
+    clean.includes("https://images.unsplash.com")
+  );
+};
+
+const extractImageUrl = (val?: string | null) => {
+  if (!val) return null;
+  const match = val.match(/(https?:\/\/[^\s]+|data:image\/[^\s]+)/);
+  return match ? match[0] : null;
+};
+
+const getDishImage = (item: MenuItem) => {
+  if (isImageUrl(item.emoji)) return extractImageUrl(item.emoji) || item.emoji;
+  if (isImageUrl(item.description)) return extractImageUrl(item.description) || item.description;
+  if (isImageUrl(item.name)) return extractImageUrl(item.name) || item.name;
+  return null;
+};
+
+const getCleanName = (name: string) => {
+  if (!name) return "Sin nombre";
+  const urlMatch = name.match(/(https?:\/\/[^\s]+|data:image\/[^\s]+)/);
+  if (urlMatch) {
+    const clean = name.replace(urlMatch[0], "").trim();
+    return clean || "Producto con imagen";
+  }
+  return name;
 };
 
 const PRESET_FOOD_IMAGES = [
@@ -276,27 +306,33 @@ export default function MenuItems() {
             <tbody>
               {isLoading ? (
                 <tr><td colSpan={5} className="py-12 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
-              ) : filtered.map((item) => (
-                <tr key={item.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-3">
-                      {isImageUrl(item.emoji) ? (
-                        <img
-                          src={item.emoji!}
-                          alt={item.name}
-                          className="h-11 w-11 rounded-xl object-cover border border-border shadow-xs shrink-0"
-                        />
-                      ) : (
-                        <div className="h-11 w-11 rounded-xl bg-secondary flex items-center justify-center text-xl shrink-0">
-                          {item.emoji || fallbackEmoji}
+              ) : filtered.map((item) => {
+                const dishImg = getDishImage(item);
+                const cleanName = getCleanName(item.name);
+
+                return (
+                  <tr key={item.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3 min-w-0 max-w-md">
+                        {dishImg ? (
+                          <img
+                            src={dishImg}
+                            alt={cleanName}
+                            className="h-12 w-12 rounded-xl object-cover border border-border shadow-xs shrink-0"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded-xl bg-secondary flex items-center justify-center text-xl shrink-0">
+                            {item.emoji || fallbackEmoji}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-card-foreground truncate">{cleanName}</p>
+                          {item.description && !isImageUrl(item.description) && (
+                            <p className="text-xs text-muted-foreground truncate max-w-[240px]">{item.description}</p>
+                          )}
                         </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-medium text-card-foreground">{item.name}</p>
-                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">{item.description}</p>
                       </div>
-                    </div>
-                  </td>
+                    </td>
                   <td className="px-5 py-3.5">
                     <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground">
                       {categoryMap[item.category_id ?? ""] || "Sin categoría"}

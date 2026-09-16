@@ -24,7 +24,37 @@ import type { Tables } from "@/integrations/supabase/types";
 
 const isImageUrl = (val?: string | null) => {
   if (!val) return false;
-  return val.startsWith("http://") || val.startsWith("https://") || val.startsWith("data:image/") || val.startsWith("/");
+  const clean = val.trim();
+  return (
+    clean.startsWith("http://") ||
+    clean.startsWith("https://") ||
+    clean.startsWith("data:image/") ||
+    clean.startsWith("/") ||
+    clean.includes("https://images.unsplash.com")
+  );
+};
+
+const extractImageUrl = (val?: string | null) => {
+  if (!val) return null;
+  const match = val.match(/(https?:\/\/[^\s]+|data:image\/[^\s]+)/);
+  return match ? match[0] : null;
+};
+
+const getDishImage = (item: Tables<"menu_items">) => {
+  if (isImageUrl(item.emoji)) return extractImageUrl(item.emoji) || item.emoji;
+  if (isImageUrl(item.description)) return extractImageUrl(item.description) || item.description;
+  if (isImageUrl(item.name)) return extractImageUrl(item.name) || item.name;
+  return null;
+};
+
+const getCleanName = (name: string) => {
+  if (!name) return "Sin nombre";
+  const urlMatch = name.match(/(https?:\/\/[^\s]+|data:image\/[^\s]+)/);
+  if (urlMatch) {
+    const clean = name.replace(urlMatch[0], "").trim();
+    return clean || "Producto con imagen";
+  }
+  return name;
 };
 
 export default function DigitalMenu() {
@@ -315,6 +345,8 @@ export default function DigitalMenu() {
               {filteredItems.map((item) => {
                 const inCartQty = cart[item.id] || 0;
                 const isFav = favorites[item.id];
+                const dishImg = getDishImage(item);
+                const cleanName = getCleanName(item.name);
 
                 return (
                   <article
@@ -324,10 +356,10 @@ export default function DigitalMenu() {
                   >
                     <div className="flex items-center gap-3.5 min-w-0 flex-1">
                       <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-100 to-amber-100 shadow-inner overflow-hidden">
-                        {isImageUrl(item.emoji) ? (
+                        {dishImg ? (
                           <img
-                            src={item.emoji!}
-                            alt={item.name}
+                            src={dishImg}
+                            alt={cleanName}
                             className="h-full w-full object-cover group-hover:scale-105 transition duration-300"
                           />
                         ) : (
@@ -344,7 +376,7 @@ export default function DigitalMenu() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <h3 className="truncate text-base font-bold text-gray-900 group-hover:text-orange-600 transition">
-                            {item.name}
+                            {cleanName}
                           </h3>
                         </div>
 
@@ -448,17 +480,17 @@ export default function DigitalMenu() {
                 <X className="w-5 h-5" />
               </button>
 
-              {isImageUrl(selectedItem.emoji) ? (
+              {getDishImage(selectedItem) ? (
                 <img
-                  src={selectedItem.emoji!}
-                  alt={selectedItem.name}
+                  src={getDishImage(selectedItem)!}
+                  alt={getCleanName(selectedItem.name)}
                   className="h-full w-full object-cover"
                 />
               ) : (
                 <div className="text-7xl mb-2 animate-bounce">{selectedItem.emoji || "🍽️"}</div>
               )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 flex flex-col justify-end">
-                <h2 className="text-2xl font-extrabold text-white">{selectedItem.name}</h2>
+                <h2 className="text-2xl font-extrabold text-white">{getCleanName(selectedItem.name)}</h2>
                 <span className="text-lg font-bold text-orange-400">Gs. {selectedItem.price.toLocaleString()}</span>
               </div>
             </div>
