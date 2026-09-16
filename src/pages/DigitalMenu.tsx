@@ -555,15 +555,32 @@ export default function DigitalMenu() {
             </div>
 
             <div className="p-5 overflow-y-auto flex-1 space-y-3">
-              {cartLines.map((line) => (
-                <div key={line.item.id} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{line.item.emoji || "🍽️"}</span>
-                    <div>
-                      <h4 className="font-bold text-sm text-gray-900">{line.item.name}</h4>
-                      <span className="text-xs font-semibold text-orange-600">Gs. {(line.item.price * line.quantity).toLocaleString()}</span>
+              {cartLines.map((line) => {
+                const lineImg = getDishImage(line.item);
+                const cleanLineName = getCleanName(line.item.name);
+
+                return (
+                  <div key={line.item.id} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100 gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-orange-100 overflow-hidden shadow-xs">
+                        {lineImg ? (
+                          <img
+                            src={lineImg}
+                            alt={cleanLineName}
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = "none";
+                            }}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-2xl">{line.item.emoji || "🍽️"}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-sm text-gray-900 truncate">{cleanLineName}</h4>
+                        <span className="text-xs font-semibold text-orange-600">Gs. {(line.item.price * line.quantity).toLocaleString()}</span>
+                      </div>
                     </div>
-                  </div>
 
                   <div className="flex items-center gap-2 bg-white p-1 rounded-xl shadow-sm border border-gray-200">
                     <button
@@ -580,8 +597,8 @@ export default function DigitalMenu() {
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               <div className="pt-3 space-y-2">
                 <label className="block text-xs font-bold text-gray-700">Tu Nombre (opcional)</label>
