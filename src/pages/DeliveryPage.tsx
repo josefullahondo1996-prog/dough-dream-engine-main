@@ -20,7 +20,7 @@ interface Driver {
   id: string;
   name: string;
   phone: string;
-  vehicle: "Moto" | "Bicicleta" | "Auto";
+  vehicle: string;
   status: "Disponible" | "En Ruta" | "Fuera de Servicio";
   deliveriesToday: number;
 }
@@ -122,7 +122,8 @@ export default function DeliveryPage() {
   const [newDriverForm, setNewDriverForm] = useState({
     name: "",
     phone: "",
-    vehicle: "Moto" as "Moto" | "Bicicleta" | "Auto",
+    vehicle: "Moto",
+    customVehicle: "",
   });
 
   const filteredDeliveries = deliveries.filter((d) => {
@@ -176,18 +177,23 @@ export default function DeliveryPage() {
     e.preventDefault();
     if (!newDriverForm.name.trim()) return;
 
+    const finalVehicle =
+      newDriverForm.vehicle === "Otro"
+        ? newDriverForm.customVehicle.trim() || "Otro Vehículo"
+        : newDriverForm.vehicle;
+
     const newDriver: Driver = {
       id: `dr-${Date.now()}`,
       name: newDriverForm.name.trim(),
       phone: newDriverForm.phone.trim() || "0981 000 000",
-      vehicle: newDriverForm.vehicle,
+      vehicle: finalVehicle,
       status: "Disponible",
       deliveriesToday: 0,
     };
 
     setDrivers((prev) => [...prev, newDriver]);
     setIsNewDriverModalOpen(false);
-    setNewDriverForm({ name: "", phone: "", vehicle: "Moto" });
+    setNewDriverForm({ name: "", phone: "", vehicle: "Moto", customVehicle: "" });
   };
 
   const handleAssignDriver = (e: React.FormEvent) => {
@@ -645,14 +651,35 @@ export default function DeliveryPage() {
                 </label>
                 <select
                   value={newDriverForm.vehicle}
-                  onChange={(e) => setNewDriverForm({ ...newDriverForm, vehicle: e.target.value as any })}
+                  onChange={(e) => setNewDriverForm({ ...newDriverForm, vehicle: e.target.value })}
                   className="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
                 >
                   <option value="Moto">Moto</option>
                   <option value="Bicicleta">Bicicleta</option>
                   <option value="Auto">Auto</option>
+                  <option value="Camioneta">Camioneta</option>
+                  <option value="Furgoneta">Furgoneta</option>
+                  <option value="Scooter / Monopatín">Scooter / Monopatín</option>
+                  <option value="A pie">A pie</option>
+                  <option value="Otro">+ Otro (Escribir personalizado)</option>
                 </select>
               </div>
+
+              {newDriverForm.vehicle === "Otro" && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Especificar Nombre del Vehículo
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: Cuatrimoto, Camión de reparto, etc."
+                    value={newDriverForm.customVehicle}
+                    onChange={(e) => setNewDriverForm({ ...newDriverForm, customVehicle: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-zinc-800">
                 <button
