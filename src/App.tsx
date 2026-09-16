@@ -32,6 +32,7 @@ const Reservaciones = lazy(() => import("./pages/Reservaciones"));
 const MenusPage = lazy(() => import("./pages/MenusPage"));
 const ModificadoresPage = lazy(() => import("./pages/ModificadoresPage"));
 const PagosPage = lazy(() => import("./pages/PagosPage"));
+const DeliveryPage = lazy(() => import("./pages/DeliveryPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Auth = lazy(() => import("./pages/Auth"));
 
@@ -69,7 +70,7 @@ const App = () => (
             <Route path="/kot" element={<KOT />} />
             <Route path="/clientes" element={<Clients />} />
             <Route path="/personal" element={<Personal />} />
-            <Route path="/delivery" element={<Personal />} />
+            <Route path="/delivery" element={<DeliveryPage />} />
             <Route path="/gastos" element={<Expenses />} />
             <Route path="/categorias-gastos" element={<ExpenseCategories />} />
             <Route path="/caja" element={<CashRegister />} />
