@@ -347,6 +347,7 @@ export default function DigitalMenu() {
                 const isFav = favorites[item.id];
                 const dishImg = getDishImage(item);
                 const cleanName = getCleanName(item.name);
+                const cleanDesc = item.description ? item.description.replace(/(https?:\/\/[^\s]+|data:image\/[^\s]+)/g, "").trim() : "";
 
                 return (
                   <article
@@ -360,6 +361,9 @@ export default function DigitalMenu() {
                           <img
                             src={dishImg}
                             alt={cleanName}
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = "none";
+                            }}
                             className="h-full w-full object-cover group-hover:scale-105 transition duration-300"
                           />
                         ) : (
@@ -380,9 +384,9 @@ export default function DigitalMenu() {
                           </h3>
                         </div>
 
-                        {item.description && (
+                        {cleanDesc && (
                           <p className="mt-0.5 text-xs text-gray-500 line-clamp-2 leading-relaxed">
-                            {item.description}
+                            {cleanDesc}
                           </p>
                         )}
 
