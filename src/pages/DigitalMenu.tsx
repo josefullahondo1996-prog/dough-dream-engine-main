@@ -597,8 +597,9 @@ export default function DigitalMenu() {
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
 
               <div className="pt-3 space-y-2">
                 <label className="block text-xs font-bold text-gray-700">Tu Nombre (opcional)</label>
