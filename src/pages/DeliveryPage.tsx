@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Truck,
   UserCheck,
@@ -15,6 +15,8 @@ import {
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/useAuth";
 
 interface Driver {
   id: string;
@@ -98,9 +100,36 @@ const INITIAL_DELIVERIES: DeliveryOrder[] = [
 ];
 
 export default function DeliveryPage() {
+  const { restaurant } = useAuth();
   const [activeTab, setActiveTab] = useState<"pedidos" | "repartidores">("pedidos");
-  const [deliveries, setDeliveries] = useState<DeliveryOrder[]>(INITIAL_DELIVERIES);
-  const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
+  const [deliveries, setDeliveries] = useState<DeliveryOrder[]>(() => {
+    const saved = localStorage.getItem("delivery_orders_list");
+    return saved ? JSON.parse(saved) : INITIAL_DELIVERIES;
+  });
+  const [drivers, setDrivers] = useState<Driver[]>(() => {
+    const saved = localStorage.getItem("delivery_drivers_list");
+    return saved ? JSON.parse(saved) : INITIAL_DRIVERS;
+  });
+  const [dbMenuItems, setDbMenuItems] = useState<{ id: string; name: string; price: number }[]>([]);
+
+  useEffect(() => {
+    localStorage.setItem("delivery_orders_list", JSON.stringify(deliveries));
+  }, [deliveries]);
+
+  useEffect(() => {
+    localStorage.setItem("delivery_drivers_list", JSON.stringify(drivers));
+  }, [drivers]);
+
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    supabase
+      .from("menu_items")
+      .select("id, name, price")
+      .eq("restaurant_id", restaurant.id)
+      .then(({ data }) => {
+        if (data) setDbMenuItems(data);
+      });
+  }, [restaurant]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Todos");
 
