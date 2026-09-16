@@ -365,7 +365,8 @@ export default function MenuItems() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
