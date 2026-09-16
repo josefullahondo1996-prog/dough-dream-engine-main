@@ -6,14 +6,13 @@ import {
   MapPin,
   Phone,
   CheckCircle2,
-  AlertCircle,
   Plus,
   Search,
   Bike,
-  Navigation,
   DollarSign,
   PackageCheck,
-  User
+  User,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -105,9 +104,26 @@ export default function DeliveryPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Todos");
 
-  // Assign driver modal state
+  // Modales
+  const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+  const [isNewDriverModalOpen, setIsNewDriverModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState("");
+
+  // Formularios
+  const [newOrderForm, setNewOrderForm] = useState({
+    clientName: "",
+    phone: "",
+    address: "",
+    total: "",
+    driverId: "",
+  });
+
+  const [newDriverForm, setNewDriverForm] = useState({
+    name: "",
+    phone: "",
+    vehicle: "Moto" as "Moto" | "Bicicleta" | "Auto",
+  });
 
   const filteredDeliveries = deliveries.filter((d) => {
     const matchSearch =
@@ -126,6 +142,52 @@ export default function DeliveryPage() {
     setDeliveries((prev) =>
       prev.map((d) => (d.id === orderId ? { ...d, status: newStatus } : d))
     );
+  };
+
+  const handleCreateOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrderForm.clientName.trim() || !newOrderForm.address.trim()) return;
+
+    const assignedDriver = drivers.find((d) => d.id === newOrderForm.driverId);
+
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+
+    const newOrder: DeliveryOrder = {
+      id: `del-${Date.now()}`,
+      orderNumber: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+      clientName: newOrderForm.clientName.trim(),
+      phone: newOrderForm.phone.trim() || "0981 000 000",
+      address: newOrderForm.address.trim(),
+      total: Number(newOrderForm.total) || 50000,
+      status: assignedDriver ? "En Camino" : "Pendiente",
+      driverId: assignedDriver?.id,
+      driverName: assignedDriver?.name,
+      createdAt: timeStr,
+      estimatedMinutes: 25,
+    };
+
+    setDeliveries((prev) => [newOrder, ...prev]);
+    setIsNewOrderModalOpen(false);
+    setNewOrderForm({ clientName: "", phone: "", address: "", total: "", driverId: "" });
+  };
+
+  const handleCreateDriver = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDriverForm.name.trim()) return;
+
+    const newDriver: Driver = {
+      id: `dr-${Date.now()}`,
+      name: newDriverForm.name.trim(),
+      phone: newDriverForm.phone.trim() || "0981 000 000",
+      vehicle: newDriverForm.vehicle,
+      status: "Disponible",
+      deliveriesToday: 0,
+    };
+
+    setDrivers((prev) => [...prev, newDriver]);
+    setIsNewDriverModalOpen(false);
+    setNewDriverForm({ name: "", phone: "", vehicle: "Moto" });
   };
 
   const handleAssignDriver = (e: React.FormEvent) => {
@@ -147,7 +209,6 @@ export default function DeliveryPage() {
       )
     );
 
-    // Update driver status
     setDrivers((prev) =>
       prev.map((dr) =>
         dr.id === selectedDriverId
@@ -173,30 +234,48 @@ export default function DeliveryPage() {
           </p>
         </div>
 
-        {/* Tab Toggle */}
-        <div className="flex items-center bg-gray-100 dark:bg-zinc-800 p-1 rounded-2xl border border-gray-200 dark:border-zinc-700">
-          <button
-            onClick={() => setActiveTab("pedidos")}
-            className={cn(
-              "px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2",
-              activeTab === "pedidos"
-                ? "bg-white dark:bg-zinc-900 text-orange-600 dark:text-orange-400 shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
-            )}
-          >
-            <PackageCheck className="w-4 h-4" /> Envíos ({deliveries.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("repartidores")}
-            className={cn(
-              "px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2",
-              activeTab === "repartidores"
-                ? "bg-white dark:bg-zinc-900 text-orange-600 dark:text-orange-400 shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
-            )}
-          >
-            <Bike className="w-4 h-4" /> Repartidores ({drivers.length})
-          </button>
+        <div className="flex items-center gap-3">
+          {activeTab === "pedidos" ? (
+            <button
+              onClick={() => setIsNewOrderModalOpen(true)}
+              className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
+              <Plus className="w-4 h-4" /> Nuevo Pedido Delivery
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsNewDriverModalOpen(true)}
+              className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
+              <Plus className="w-4 h-4" /> Registrar Chofer
+            </button>
+          )}
+
+          {/* Tab Toggle */}
+          <div className="flex items-center bg-gray-100 dark:bg-zinc-800 p-1 rounded-2xl border border-gray-200 dark:border-zinc-700">
+            <button
+              onClick={() => setActiveTab("pedidos")}
+              className={cn(
+                "px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2",
+                activeTab === "pedidos"
+                  ? "bg-white dark:bg-zinc-900 text-orange-600 dark:text-orange-400 shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
+              )}
+            >
+              <PackageCheck className="w-4 h-4" /> Envíos ({deliveries.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("repartidores")}
+              className={cn(
+                "px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2",
+                activeTab === "repartidores"
+                  ? "bg-white dark:bg-zinc-900 text-orange-600 dark:text-orange-400 shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
+              )}
+            >
+              <Bike className="w-4 h-4" /> Repartidores ({drivers.length})
+            </button>
+          </div>
         </div>
       </div>
 
@@ -411,7 +490,191 @@ export default function DeliveryPage() {
         </div>
       )}
 
-      {/* Assign Driver Modal */}
+      {/* Modal: Crear Nuevo Pedido Delivery */}
+      {isNewOrderModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-zinc-800 pb-3">
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
+                <PackageCheck className="w-5 h-5 text-orange-500" /> Registrar Nuevo Pedido Delivery
+              </h3>
+              <button onClick={() => setIsNewOrderModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateOrder} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Nombre del Cliente
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Sofía Villalba"
+                  value={newOrderForm.clientName}
+                  onChange={(e) => setNewOrderForm({ ...newOrderForm, clientName: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Teléfono
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: 0981 123 456"
+                    value={newOrderForm.phone}
+                    onChange={(e) => setNewOrderForm({ ...newOrderForm, phone: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Monto Total ($)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Ej: 85000"
+                    value={newOrderForm.total}
+                    onChange={(e) => setNewOrderForm({ ...newOrderForm, total: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Dirección Completa de Entrega
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  placeholder="Ej: Av. España 1230 e/ Brasilia, Apt 4B"
+                  value={newOrderForm.address}
+                  onChange={(e) => setNewOrderForm({ ...newOrderForm, address: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Asignar Repartidor (Opcional)
+                </label>
+                <select
+                  value={newOrderForm.driverId}
+                  onChange={(e) => setNewOrderForm({ ...newOrderForm, driverId: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="">Sin asignar por ahora</option>
+                  {drivers.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.vehicle}) — {d.status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setIsNewOrderModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow transition"
+                >
+                  Crear Pedido
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Registrar Nuevo Chofer */}
+      {isNewDriverModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-zinc-800 pb-3">
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
+                <Bike className="w-5 h-5 text-orange-500" /> Registrar Nuevo Repartidor
+              </h3>
+              <button onClick={() => setIsNewDriverModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateDriver} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Nombre Completo
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Juan Carlos Franco"
+                  value={newDriverForm.name}
+                  onChange={(e) => setNewDriverForm({ ...newDriverForm, name: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Teléfono de Contacto
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: 0981 444 333"
+                  value={newDriverForm.phone}
+                  onChange={(e) => setNewDriverForm({ ...newDriverForm, phone: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Tipo de Vehículo
+                </label>
+                <select
+                  value={newDriverForm.vehicle}
+                  onChange={(e) => setNewDriverForm({ ...newDriverForm, vehicle: e.target.value as any })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="Moto">Moto</option>
+                  <option value="Bicicleta">Bicicleta</option>
+                  <option value="Auto">Auto</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setIsNewDriverModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow transition"
+                >
+                  Registrar Chofer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Asignar Chofer */}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
