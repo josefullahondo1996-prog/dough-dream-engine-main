@@ -320,7 +320,7 @@ export default function DeliveryPage() {
           <div>
             <span className="text-xs text-gray-500 font-medium">Recaudado hoy</span>
             <p className="text-xl font-extrabold text-gray-900 dark:text-white">
-              ${totalRevenue.toLocaleString()}
+              Gs. {totalRevenue.toLocaleString()}
             </p>
           </div>
         </div>
@@ -414,7 +414,7 @@ export default function DeliveryPage() {
                       )}
                     </div>
                     <span className="font-extrabold text-sm text-gray-900 dark:text-white">
-                      ${order.total.toLocaleString()}
+                      Gs. {order.total.toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -534,7 +534,7 @@ export default function DeliveryPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                    Monto Total ($)
+                    Monto Total (Gs.)
                   </label>
                   <input
                     type="number"

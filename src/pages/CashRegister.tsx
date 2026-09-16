@@ -120,7 +120,7 @@ export default function CashRegister() {
       userName: profile?.full_name ?? "Usuario",
       role: membership?.role ?? "unknown",
       action: "cash-open",
-      details: `Apertura de caja con importe inicial ${parsedAmount.toFixed(2)}€`,
+      details: `Apertura de caja con importe inicial Gs. ${parsedAmount.toLocaleString()}`,
     });
 
     setInitialAmount("0");
@@ -160,7 +160,7 @@ export default function CashRegister() {
       userName: profile?.full_name ?? "Usuario",
       role: membership?.role ?? "unknown",
       action: "cash-close",
-      details: `Cierre de caja confirmado: ${finalAmount.toFixed(2)}€`,
+      details: `Cierre de caja confirmado: Gs. ${finalAmount.toLocaleString()}`,
     });
 
     await loadData();

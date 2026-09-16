@@ -235,7 +235,7 @@ export default function ModificadoresPage() {
                       {opt.name}
                     </span>
                     <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                      {opt.price > 0 ? `+$${opt.price.toLocaleString()}` : "Gratis"}
+                      {opt.price > 0 ? `+Gs. ${opt.price.toLocaleString()}` : "Gratis"}
                     </span>
                   </div>
                 ))}
@@ -352,9 +352,9 @@ export default function ModificadoresPage() {
                         }
                         className="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white text-sm"
                       />
-                      <div className="relative w-28">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                          $
+                      <div className="relative w-32">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-bold">
+                          Gs.
                         </span>
                         <input
                           type="number"

@@ -19,8 +19,7 @@ import {
 
 const PIE_COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ef4444", "#ec4899"];
 
-const fmt = (n: number) =>
-  n.toLocaleString("es-ES", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+const fmt = (n: number) => `Gs. ${Math.round(n).toLocaleString("es-PY")}`;
 
 const RANGE_LABELS: Record<DateRange, string> = {
   "7d": "Últimos 7 días",
@@ -152,7 +151,7 @@ export default function Reports() {
                   <BarChart data={overviewData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="label" className="text-xs fill-muted-foreground" />
-                    <YAxis className="text-xs fill-muted-foreground" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis className="text-xs fill-muted-foreground" tickFormatter={(v) => `Gs. ${(v / 1000).toFixed(0)}k`} />
                     <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }} />
                     <Legend />
                     <Bar dataKey="Ventas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
@@ -176,7 +175,7 @@ export default function Reports() {
                   <LineChart data={salesData.map((d) => ({ label: d.label, Ventas: d.total, Órdenes: d.count }))} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="label" className="text-xs fill-muted-foreground" />
-                    <YAxis yAxisId="left" className="text-xs fill-muted-foreground" tickFormatter={(v) => `$${v}`} />
+                    <YAxis yAxisId="left" className="text-xs fill-muted-foreground" tickFormatter={(v) => `Gs. ${v}`} />
                     <YAxis yAxisId="right" orientation="right" className="text-xs fill-muted-foreground" />
                     <Tooltip formatter={(v: number, name: string) => name === "Ventas" ? fmt(v) : v} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }} />
                     <Legend />
@@ -204,7 +203,7 @@ export default function Reports() {
                   <BarChart data={expensesData.map((d) => ({ label: d.label, Gastos: d.amount }))} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="label" className="text-xs fill-muted-foreground" />
-                    <YAxis className="text-xs fill-muted-foreground" tickFormatter={(v) => `$${v}`} />
+                    <YAxis className="text-xs fill-muted-foreground" tickFormatter={(v) => `Gs. ${v}`} />
                     <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }} />
                     <Bar dataKey="Gastos" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} opacity={0.8} />
                   </BarChart>

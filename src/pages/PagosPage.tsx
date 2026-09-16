@@ -55,7 +55,7 @@ export default function PagosPage() {
         <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
           <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Recaudado (Seleccionado)</span>
           <p className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-            ${totalAmount.toLocaleString()}
+            Gs. {totalAmount.toLocaleString()}
           </p>
           <span className="text-xs text-gray-400 mt-2 block">{filtered.length} transacciones registradas</span>
         </div>
@@ -67,7 +67,7 @@ export default function PagosPage() {
         <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
           <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Promedio por Pago</span>
           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-            ${filtered.length > 0 ? Math.round(totalAmount / filtered.length).toLocaleString() : 0}
+            Gs. {filtered.length > 0 ? Math.round(totalAmount / filtered.length).toLocaleString() : 0}
           </p>
           <span className="text-xs text-gray-400 mt-2 block">Ticket de cobro promedio</span>
         </div>
@@ -128,7 +128,7 @@ export default function PagosPage() {
                   </td>
                   <td className="py-3.5 px-4 text-xs text-gray-500 dark:text-gray-400">{p.date}</td>
                   <td className="py-3.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                    ${p.amount.toLocaleString()}
+                    Gs. {p.amount.toLocaleString()}
                   </td>
                   <td className="py-3.5 px-4 text-center">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
