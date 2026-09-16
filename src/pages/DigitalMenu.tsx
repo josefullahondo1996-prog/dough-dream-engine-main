@@ -22,6 +22,11 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
+const isImageUrl = (val?: string | null) => {
+  if (!val) return false;
+  return val.startsWith("http://") || val.startsWith("https://") || val.startsWith("data:image/") || val.startsWith("/");
+};
+
 export default function DigitalMenu() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
@@ -318,11 +323,19 @@ export default function DigitalMenu() {
                     className="group relative cursor-pointer rounded-2xl border border-orange-100 bg-white p-3.5 shadow-sm transition hover:shadow-md hover:border-orange-300 flex gap-3.5 items-center justify-between"
                   >
                     <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-100 to-amber-100 text-3xl shadow-inner">
-                        {item.emoji || "🍽️"}
+                      <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-100 to-amber-100 shadow-inner overflow-hidden">
+                        {isImageUrl(item.emoji) ? (
+                          <img
+                            src={item.emoji!}
+                            alt={item.name}
+                            className="h-full w-full object-cover group-hover:scale-105 transition duration-300"
+                          />
+                        ) : (
+                          <span className="text-3xl">{item.emoji || "🍽️"}</span>
+                        )}
                         <button
                           onClick={(e) => toggleFavorite(item.id, e)}
-                          className="absolute -top-1.5 -left-1.5 p-1 rounded-full bg-white shadow text-rose-500 hover:scale-110 transition"
+                          className="absolute top-1 left-1 p-1 rounded-full bg-white/90 shadow text-rose-500 hover:scale-110 transition backdrop-blur-xs"
                         >
                           <Heart className={`w-3.5 h-3.5 ${isFav ? "fill-rose-500 text-rose-500" : "text-gray-300"}`} />
                         </button>
@@ -427,17 +440,27 @@ export default function DigitalMenu() {
       {selectedItem && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-orange-100">
-            <div className="relative bg-gradient-to-br from-orange-100 to-amber-100 p-8 flex flex-col items-center justify-center">
+            <div className="relative h-56 w-full bg-gradient-to-br from-orange-100 to-amber-100 flex flex-col items-center justify-center overflow-hidden">
               <button
                 onClick={() => setSelectedItem(null)}
-                className="absolute top-4 right-4 h-9 w-9 rounded-full bg-white/80 text-gray-700 flex items-center justify-center shadow hover:bg-white"
+                className="absolute top-4 right-4 z-10 h-9 w-9 rounded-full bg-black/40 text-white flex items-center justify-center shadow-lg hover:bg-black/60 backdrop-blur-sm transition"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="text-7xl mb-2 animate-bounce">{selectedItem.emoji || "🍽️"}</div>
-              <h2 className="text-2xl font-extrabold text-gray-900 text-center">{selectedItem.name}</h2>
-              <span className="mt-1 text-lg font-bold text-orange-600">Gs. {selectedItem.price.toLocaleString()}</span>
+              {isImageUrl(selectedItem.emoji) ? (
+                <img
+                  src={selectedItem.emoji!}
+                  alt={selectedItem.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="text-7xl mb-2 animate-bounce">{selectedItem.emoji || "🍽️"}</div>
+              )}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 flex flex-col justify-end">
+                <h2 className="text-2xl font-extrabold text-white">{selectedItem.name}</h2>
+                <span className="text-lg font-bold text-orange-400">Gs. {selectedItem.price.toLocaleString()}</span>
+              </div>
             </div>
 
             <div className="p-6 space-y-4">
