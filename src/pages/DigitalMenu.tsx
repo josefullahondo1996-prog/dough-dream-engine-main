@@ -7,11 +7,16 @@ import {
   MapPin,
   Minus,
   Plus,
-  Send,
+  Search,
   ShoppingBag,
   Sparkles,
   Star,
   UtensilsCrossed,
+  X,
+  ChevronUp,
+  Info,
+  Heart,
+  Share2
 } from "lucide-react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +31,7 @@ export default function DigitalMenu() {
   const [categories, setCategories] = useState<Tables<"menu_categories">[]>([]);
   const [items, setItems] = useState<Tables<"menu_items">[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [customerName, setCustomerName] = useState("");
   const [notes, setNotes] = useState("");
@@ -35,6 +41,11 @@ export default function DigitalMenu() {
   const [callSent, setCallSent] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  
+  // Modal de detalle del producto
+  const [selectedItem, setSelectedItem] = useState<Tables<"menu_items"> | null>(null);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [favorites, setFavorites] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const loadMenu = async () => {
@@ -80,9 +91,13 @@ export default function DigitalMenu() {
   }, [slug, tableId]);
 
   const filteredItems = useMemo(() => {
-    if (activeCategory === "all") return items;
-    return items.filter((item) => item.category_id === activeCategory);
-  }, [activeCategory, items]);
+    return items.filter((item) => {
+      const matchCategory = activeCategory === "all" || item.category_id === activeCategory;
+      const matchSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchCategory && matchSearch;
+    });
+  }, [activeCategory, searchQuery, items]);
 
   const cartLines = useMemo(
     () => items.filter((item) => cart[item.id]).map((item) => ({ item, quantity: cart[item.id] })),
@@ -103,6 +118,11 @@ export default function DigitalMenu() {
       return { ...current, [itemId]: nextQuantity };
     });
 
+  const toggleFavorite = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFavorites(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const submitOrder = async () => {
     if (!tableId || !cartLines.length || isSubmitting) return;
     setIsSubmitting(true);
@@ -120,6 +140,7 @@ export default function DigitalMenu() {
       setCart({});
       setCustomerName("");
       setNotes("");
+      setIsCartOpen(false);
     }
 
     setIsSubmitting(false);
@@ -144,8 +165,11 @@ export default function DigitalMenu() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_#fff7ed,_#fff,_#fff)] text-sm text-muted-foreground">
-        Cargando menú...
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_#fff7ed,_#fff,_#fff)] text-sm font-medium text-orange-600">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          <span>Cargando menú digital interactivo...</span>
+        </div>
       </div>
     );
   }
@@ -153,61 +177,63 @@ export default function DigitalMenu() {
   if (error || !restaurant) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_#fff7ed,_#fff,_#fff)] px-6 text-center">
-        <div className="max-w-sm rounded-3xl border border-border bg-white p-8 shadow-card">
-          <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive" />
-          <p className="font-medium text-foreground">{error || "Menú no disponible"}</p>
+        <div className="max-w-sm rounded-3xl border border-orange-100 bg-white p-8 shadow-2xl">
+          <AlertCircle className="mx-auto mb-3 h-10 w-10 text-rose-500" />
+          <p className="font-semibold text-gray-900">{error || "Menú no disponible"}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(251,146,60,0.18),_transparent_28%),linear-gradient(180deg,_#fff7ed_0%,_#fff_30%,_#fffaf5_100%)] px-3 py-4 text-foreground sm:px-6 sm:py-6">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(251,146,60,0.18),_transparent_28%),linear-gradient(180deg,_#fff7ed_0%,_#fff_30%,_#fffaf5_100%)] px-3 py-4 text-foreground sm:px-6 sm:py-6 pb-32">
       <div className="mx-auto max-w-5xl">
-        <div className="overflow-hidden rounded-[2rem] border border-orange-100 bg-white/85 shadow-[0_25px_80px_rgba(120,53,15,0.12)] backdrop-blur-sm">
-          <header className="relative overflow-hidden bg-gradient-to-br from-[#2a120d] via-[#4a1d16] to-[#6b2b1d] px-4 pb-6 pt-4 text-white sm:px-6">
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-orange-400/25 blur-3xl" />
+        <div className="overflow-hidden rounded-[2.5rem] border border-orange-100 bg-white/90 shadow-[0_25px_80px_rgba(120,53,15,0.12)] backdrop-blur-md">
+          {/* Cover Header */}
+          <header className="relative overflow-hidden bg-gradient-to-br from-[#1c0d0a] via-[#3d1811] to-[#592318] px-4 pb-6 pt-5 text-white sm:px-8">
+            <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-orange-500/20 blur-3xl" />
             <div className="absolute left-0 top-0 h-full w-full bg-[radial-gradient(circle_at_top_right,_rgba(251,146,60,0.4),_transparent_30%)]" />
 
             <div className="relative flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/12 ring-1 ring-white/15">
-                  <UtensilsCrossed className="h-6 w-6 text-orange-200" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20 shadow-inner">
+                  <UtensilsCrossed className="h-6 w-6 text-orange-300" />
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-orange-100/80">Menú digital</p>
-                  <h1 className="font-display text-xl font-bold sm:text-2xl">{restaurant.name}</h1>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-orange-200/80">Menú Interactivo</span>
+                  <h1 className="font-display text-xl font-extrabold sm:text-2xl text-white">{restaurant.name}</h1>
                 </div>
               </div>
 
               {table && (
-                <div className="rounded-full border border-white/15 bg-white/8 px-3 py-1.5 text-xs font-medium text-orange-50">
-                  {table.name}
+                <div className="rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-bold text-orange-100 shadow-sm backdrop-blur-md">
+                  📍 {table.name}
                 </div>
               )}
             </div>
 
-            <div className="relative mt-5 rounded-[1.7rem] border border-white/10 bg-white/10 p-4 shadow-inner shadow-white/5">
+            {/* Banner Experience */}
+            <div className="relative mt-5 rounded-[2rem] border border-white/10 bg-white/10 p-5 backdrop-blur-md shadow-inner">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-orange-100/70">Experiencia premium</p>
-                  <h2 className="mt-2 max-w-sm font-display text-2xl font-bold leading-tight sm:text-3xl">
-                    Todo lo que te gusta, sin filas ni esperas.
+                  <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-orange-200">Sabor Auténtico</span>
+                  <h2 className="mt-1 max-w-md font-display text-xl font-bold leading-tight sm:text-2xl text-white">
+                    ¡Pide directamente desde tu mesa con atención express!
                   </h2>
                 </div>
-                <div className="rounded-2xl bg-[#fff3e7] p-2 text-orange-700">
-                  <Sparkles className="h-5 w-5" />
+                <div className="rounded-2xl bg-orange-500/20 p-2.5 text-orange-300 ring-1 ring-orange-400/30">
+                  <Sparkles className="h-6 w-6" />
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-orange-50/85">
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1.5">
-                  <Clock3 className="h-3.5 w-3.5" />
-                  Preparación rápida
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-orange-100">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 font-medium">
+                  <Clock3 className="h-3.5 w-3.5 text-orange-300" />
+                  Prep. 15-20 min
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1.5">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {table ? `Mesa ${table.name}` : "Mesa confirmada"}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 font-medium">
+                  <MapPin className="h-3.5 w-3.5 text-orange-300" />
+                  {table ? `Mesa ${table.name}` : "Mesa libre"}
                 </span>
               </div>
 
@@ -215,37 +241,57 @@ export default function DigitalMenu() {
                 <button
                   onClick={() => void callWaiter()}
                   disabled={isCalling || callSent}
-                  className="mt-4 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#fff3e7] px-4 py-2.5 text-sm font-semibold text-[#5d2c1b] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {callSent ? <Check className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
-                  {callSent ? "Camarero avisado" : isCalling ? "Enviando aviso..." : "Solicitar camarero"}
+                  {callSent ? "Camarero avisado ✓" : isCalling ? "Enviando aviso..." : "Llamar al Mozo / Camarero"}
                 </button>
               )}
             </div>
           </header>
 
-          <div className="px-4 pb-28 pt-5 sm:px-6">
-            <div className="flex gap-2 overflow-x-auto pb-2">
+          {/* Search & Category Filter */}
+          <div className="px-4 pt-5 sm:px-6">
+            <div className="relative mb-4">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400" />
+              <input
+                type="text"
+                placeholder="Buscar tu comida o bebida favorita..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-2xl border border-orange-200 bg-[#fffaf5] pl-10 pr-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-orange-400 shadow-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
               <button
                 type="button"
                 onClick={() => setActiveCategory("all")}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
+                className={`shrink-0 rounded-2xl px-4 py-2.5 text-xs font-bold transition shadow-sm ${
                   activeCategory === "all"
-                    ? "bg-[#f97316] text-white shadow-sm"
-                    : "bg-[#fff7ed] text-[#7c3b1d]"
+                    ? "bg-orange-500 text-white"
+                    : "bg-orange-50 text-orange-900 hover:bg-orange-100"
                 }`}
               >
-                Todo
+                Todas las categorías
               </button>
               {categories.map((category) => (
                 <button
                   key={category.id}
                   type="button"
                   onClick={() => setActiveCategory(category.id)}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
+                  className={`shrink-0 rounded-2xl px-4 py-2.5 text-xs font-bold transition shadow-sm ${
                     activeCategory === category.id
-                      ? "bg-[#f97316] text-white shadow-sm"
-                      : "bg-[#fff7ed] text-[#7c3b1d]"
+                      ? "bg-orange-500 text-white"
+                      : "bg-orange-50 text-orange-900 hover:bg-orange-100"
                   }`}
                 >
                   {category.name}
@@ -253,142 +299,267 @@ export default function DigitalMenu() {
               ))}
             </div>
 
-            <div className="mt-5 space-y-4">
+            {/* Menu Items Grid */}
+            <div className="mt-5 space-y-3 pb-8">
               {filteredItems.length === 0 && (
-                <div className="rounded-3xl border border-dashed border-orange-200 bg-[#fffaf5] p-8 text-center text-sm text-muted-foreground">
-                  El menú está siendo actualizado.
+                <div className="rounded-3xl border border-dashed border-orange-200 bg-[#fffaf5] p-8 text-center text-sm text-gray-500">
+                  No se encontraron platos que coincidan con la búsqueda.
                 </div>
               )}
 
-              {filteredItems.map((item) => (
-                <article
-                  key={item.id}
-                  className="rounded-[1.6rem] border border-orange-100 bg-[#fffdfb] p-3 shadow-[0_12px_30px_rgba(121,52,15,0.04)]"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ffedd5] to-[#fed7aa] text-2xl shadow-inner shadow-orange-100">
-                      {item.emoji || "🍽️"}
-                    </div>
+              {filteredItems.map((item) => {
+                const inCartQty = cart[item.id] || 0;
+                const isFav = favorites[item.id];
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-base font-bold text-[#29150d]">{item.name}</h3>
-                          {item.description && (
-                            <p className="mt-1 text-xs leading-5 text-muted-foreground">{item.description}</p>
-                          )}
-                        </div>
-                        <span className="whitespace-nowrap text-sm font-extrabold text-[#f97316]">
-                          Gs. {item.price.toLocaleString()}
-                        </span>
+                return (
+                  <article
+                    key={item.id}
+                    onClick={() => setSelectedItem(item)}
+                    className="group relative cursor-pointer rounded-2xl border border-orange-100 bg-white p-3.5 shadow-sm transition hover:shadow-md hover:border-orange-300 flex gap-3.5 items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-100 to-amber-100 text-3xl shadow-inner">
+                        {item.emoji || "🍽️"}
+                        <button
+                          onClick={(e) => toggleFavorite(item.id, e)}
+                          className="absolute -top-1.5 -left-1.5 p-1 rounded-full bg-white shadow text-rose-500 hover:scale-110 transition"
+                        >
+                          <Heart className={`w-3.5 h-3.5 ${isFav ? "fill-rose-500 text-rose-500" : "text-gray-300"}`} />
+                        </button>
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between gap-2">
-                        <div className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-1 text-[10px] font-medium text-orange-700">
-                          <Star className="h-3 w-3 fill-current" />
-                          Popular
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="truncate text-base font-bold text-gray-900 group-hover:text-orange-600 transition">
+                            {item.name}
+                          </h3>
                         </div>
 
+                        {item.description && (
+                          <p className="mt-0.5 text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                            {item.description}
+                          </p>
+                        )}
+
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-sm font-extrabold text-orange-600">
+                            Gs. {item.price.toLocaleString()}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> 4.9
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cart Controls */}
+                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {inCartQty > 0 ? (
+                        <div className="flex items-center gap-2 bg-orange-50 rounded-2xl p-1 border border-orange-200">
+                          <button
+                            type="button"
+                            onClick={() => updateCart(item.id, -1)}
+                            className="h-8 w-8 rounded-xl bg-white text-orange-600 font-bold shadow-sm flex items-center justify-center hover:bg-orange-100"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="w-4 text-center text-xs font-bold text-orange-900">{inCartQty}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateCart(item.id, 1)}
+                            className="h-8 w-8 rounded-xl bg-orange-500 text-white font-bold shadow-sm flex items-center justify-center hover:bg-orange-600"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
                         <button
                           type="button"
                           onClick={() => updateCart(item.id, 1)}
-                          className="inline-flex items-center gap-1 rounded-full bg-[#f97316] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#ea580c]"
+                          className="inline-flex items-center gap-1.5 rounded-2xl bg-orange-500 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-95"
                         >
-                          <Plus className="h-3.5 w-3.5" />
-                          Agregar
+                          <Plus className="h-4 w-4" />
+                          Pedir
                         </button>
-                      </div>
+                      )}
                     </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
 
-      {tableId && (
-        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-5xl px-3 pb-3 sm:px-6">
-          <div className="rounded-[1.7rem] border border-orange-100 bg-white/90 p-3 shadow-[0_18px_50px_rgba(94,54,20,0.18)] backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Pedido</p>
-                <p className="text-sm font-semibold text-[#2a120d]">{cartCount} producto{cartCount === 1 ? "" : "s"}</p>
+      {/* Floating Bottom Cart Bar */}
+      {cartCount > 0 && (
+        <div className="fixed inset-x-0 bottom-3 z-40 mx-auto max-w-xl px-4 animate-in slide-in-from-bottom duration-300">
+          <div
+            onClick={() => setIsCartOpen(true)}
+            className="cursor-pointer rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 p-3.5 text-white shadow-2xl flex items-center justify-between gap-3 border border-orange-400/30 backdrop-blur-lg hover:brightness-105 transition"
+          >
+            <div className="flex items-center gap-3">
+              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white font-bold">
+                <ShoppingBag className="h-5 w-5" />
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-white text-orange-600 text-xs font-extrabold flex items-center justify-center shadow">
+                  {cartCount}
+                </span>
               </div>
-              <div className="rounded-full bg-orange-50 px-3 py-1.5 text-sm font-bold text-[#f97316]">
-                Gs. {cartTotal.toLocaleString()}
+              <div>
+                <p className="text-xs font-medium text-orange-100">Ver tu pedido</p>
+                <p className="text-sm font-bold text-white">{cartCount} producto{cartCount === 1 ? "" : "s"} seleccionados</p>
               </div>
             </div>
 
-            {cartLines.length > 0 && (
-              <div className="mt-3 space-y-2 border-t border-orange-100 pt-3">
-                {cartLines.map((line) => (
-                  <div key={line.item.id} className="flex items-center justify-between gap-3 rounded-2xl bg-[#fffaf5] px-3 py-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-[#2a120d]">{line.item.name}</p>
-                      <p className="text-xs text-muted-foreground">Gs. {line.item.price.toLocaleString()}</p>
-                    </div>
+            <div className="flex items-center gap-3">
+              <span className="text-base font-extrabold text-white">
+                Gs. {cartTotal.toLocaleString()}
+              </span>
+              <div className="bg-white/20 p-2 rounded-xl text-white">
+                <ChevronUp className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => updateCart(line.item.id, -1)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#2a120d] shadow-sm"
-                        aria-label={`Restar ${line.item.name}`}
-                      >
-                        <Minus className="h-3.5 w-3.5" />
-                      </button>
-                      <span className="w-5 text-center text-sm font-semibold">{line.quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => updateCart(line.item.id, 1)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#2a120d] shadow-sm"
-                        aria-label={`Sumar ${line.item.name}`}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
+      {/* Item Detail Modal */}
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-orange-100">
+            <div className="relative bg-gradient-to-br from-orange-100 to-amber-100 p-8 flex flex-col items-center justify-center">
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="absolute top-4 right-4 h-9 w-9 rounded-full bg-white/80 text-gray-700 flex items-center justify-center shadow hover:bg-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-7xl mb-2 animate-bounce">{selectedItem.emoji || "🍽️"}</div>
+              <h2 className="text-2xl font-extrabold text-gray-900 text-center">{selectedItem.name}</h2>
+              <span className="mt-1 text-lg font-bold text-orange-600">Gs. {selectedItem.price.toLocaleString()}</span>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {selectedItem.description && (
+                <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Descripción</h4>
+                  <p className="text-sm text-gray-600 leading-relaxed">{selectedItem.description}</p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between py-3 border-t border-b border-gray-100">
+                <span className="text-sm font-bold text-gray-900">Cantidad deseada</span>
+                <div className="flex items-center gap-3 bg-orange-50 p-1.5 rounded-2xl border border-orange-200">
+                  <button
+                    onClick={() => updateCart(selectedItem.id, -1)}
+                    className="h-9 w-9 rounded-xl bg-white text-orange-600 font-bold shadow-sm flex items-center justify-center"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="w-6 text-center font-extrabold text-orange-900">{cart[selectedItem.id] || 0}</span>
+                  <button
+                    onClick={() => updateCart(selectedItem.id, 1)}
+                    className="h-9 w-9 rounded-xl bg-orange-500 text-white font-bold shadow-sm flex items-center justify-center"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl shadow-lg transition text-sm"
+              >
+                Listo / Volver al Menú
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Cart Drawer Modal */}
+      {isCartOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center p-0 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-orange-50">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-orange-600" />
+                <h3 className="font-extrabold text-lg text-gray-900">Tu Pedido Actual</h3>
+              </div>
+              <button
+                onClick={() => setIsCartOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full hover:bg-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto flex-1 space-y-3">
+              {cartLines.map((line) => (
+                <div key={line.item.id} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{line.item.emoji || "🍽️"}</span>
+                    <div>
+                      <h4 className="font-bold text-sm text-gray-900">{line.item.name}</h4>
+                      <span className="text-xs font-semibold text-orange-600">Gs. {(line.item.price * line.quantity).toLocaleString()}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
 
-            {!submittedOrder && (
-              <div className="mt-3 space-y-2">
-                <input
-                  value={customerName}
-                  onChange={(event) => setCustomerName(event.target.value)}
-                  placeholder="Tu nombre (opcional)"
-                  className="w-full rounded-2xl border border-orange-100 bg-[#fffaf5] px-3 py-2.5 text-sm text-[#25150e] placeholder:text-muted-foreground outline-none ring-0 focus:border-orange-300"
-                />
-                <textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Notas para cocina..."
-                  rows={2}
-                  className="w-full rounded-2xl border border-orange-100 bg-[#fffaf5] px-3 py-2.5 text-sm text-[#25150e] placeholder:text-muted-foreground outline-none ring-0 focus:border-orange-300"
-                />
-                <button
-                  type="button"
-                  onClick={() => void submitOrder()}
-                  disabled={isSubmitting || cartLines.length === 0}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f97316] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:bg-orange-200"
-                >
-                  <ShoppingBag className="h-4 w-4" />
-                  {isSubmitting ? "Enviando pedido..." : "Enviar pedido"}
-                </button>
-              </div>
-            )}
-
-            {submittedOrder && (
-              <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-center text-sm text-emerald-800">
-                <div className="flex items-center justify-center gap-2 font-semibold">
-                  <Check className="h-4 w-4" />
-                  Pedido enviado
+                  <div className="flex items-center gap-2 bg-white p-1 rounded-xl shadow-sm border border-gray-200">
+                    <button
+                      onClick={() => updateCart(line.item.id, -1)}
+                      className="h-7 w-7 rounded-lg text-gray-600 hover:bg-gray-100 flex items-center justify-center font-bold"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="w-4 text-center text-xs font-bold text-gray-900">{line.quantity}</span>
+                    <button
+                      onClick={() => updateCart(line.item.id, 1)}
+                      className="h-7 w-7 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <p className="mt-1 text-xs text-emerald-700">Tu orden #{submittedOrder} ya fue recibida por la cocina.</p>
+              ))}
+
+              <div className="pt-3 space-y-2">
+                <label className="block text-xs font-bold text-gray-700">Tu Nombre (opcional)</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Juan Pérez"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:ring-2 focus:ring-orange-500"
+                />
+
+                <label className="block text-xs font-bold text-gray-700 pt-1">Notas para la cocina</label>
+                <textarea
+                  rows={2}
+                  placeholder="Ej: Sin cebolla, extra aderezo..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:ring-2 focus:ring-orange-500"
+                />
               </div>
-            )}
+            </div>
+
+            <div className="p-5 border-t border-gray-100 bg-white space-y-3">
+              <div className="flex items-center justify-between text-base font-extrabold text-gray-900">
+                <span>Total a Pagar</span>
+                <span className="text-xl text-orange-600">Gs. {cartTotal.toLocaleString()}</span>
+              </div>
+
+              <button
+                onClick={() => void submitOrder()}
+                disabled={isSubmitting || cartLines.length === 0}
+                className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-110 text-white font-extrabold rounded-2xl shadow-xl transition flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                {isSubmitting ? "Enviando Pedido a Cocina..." : "Confirmar y Enviar Pedido"}
+              </button>
+            </div>
           </div>
         </div>
       )}
