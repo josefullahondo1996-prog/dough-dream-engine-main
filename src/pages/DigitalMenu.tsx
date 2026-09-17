@@ -380,28 +380,45 @@ export default function DigitalMenu() {
                     {/* Schedule Banner */}
                     {schedule ? (
                       <div
-                        className={`mb-4 flex items-center justify-between gap-3 rounded-2xl px-5 py-3.5 ${
+                        className={`mb-4 relative flex items-center justify-between gap-3 rounded-2xl px-5 py-4 overflow-hidden ${
                           isActive
-                            ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg"
-                            : "bg-orange-50 border border-orange-200 text-orange-900"
+                            ? "text-white shadow-lg"
+                            : "border border-orange-200 text-orange-900"
                         }`}
+                        style={
+                          isActive
+                            ? { background: "linear-gradient(135deg, #f97316, #f59e0b)" }
+                            : { background: "#fff7ed" }
+                        }
                       >
-                        <div>
-                          <p className={`text-[10px] font-bold uppercase tracking-widest ${ isActive ? "text-orange-100" : "text-orange-500" }`}>
+                        {/* Cover image background */}
+                        {schedule.cover_image && (
+                          <>
+                            <img
+                              src={schedule.cover_image}
+                              alt={schedule.name}
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                            <div className={`absolute inset-0 ${isActive ? "bg-black/50" : "bg-white/70"}`} />
+                          </>
+                        )}
+                        <div className="relative z-10">
+                          <p className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? "text-orange-200" : "text-orange-500"}`}>
                             {isActive ? "⏰ Disponible ahora" : "🕒 Próximamente"}
                           </p>
-                          <h3 className="font-bold text-base mt-0.5">{schedule.name}</h3>
+                          <h3 className={`font-bold text-base mt-0.5 ${schedule.cover_image && isActive ? "text-white" : ""}`}>{schedule.name}</h3>
                           {schedule.description && (
-                            <p className={`text-xs mt-0.5 ${ isActive ? "text-orange-100" : "text-orange-700" }`}>
+                            <p className={`text-xs mt-0.5 ${isActive ? "text-orange-100" : "text-orange-700"}`}>
                               {schedule.description}
                             </p>
                           )}
                         </div>
-                        <div className={`text-right shrink-0 ${ isActive ? "text-orange-100" : "text-orange-600" }`}>
+                        <div className={`relative z-10 text-right shrink-0 ${isActive ? "text-orange-100" : "text-orange-600"}`}>
                           <p className="text-sm font-semibold">{schedule.start_time} – {schedule.end_time}</p>
                           <p className="text-[10px] mt-0.5">{schedule.active_days.join(", ")}</p>
                         </div>
                       </div>
+
                     ) : schedules.length > 0 ? (
                       <div className="mb-4 flex items-center gap-2">
                         <div className="h-px flex-1 bg-orange-200" />

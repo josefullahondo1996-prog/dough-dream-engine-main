@@ -353,6 +353,7 @@ export type Database = {
           active_days: string[]
           is_active: boolean
           sort_order: number
+          cover_image: string | null
           created_at: string
         }
         Insert: {
@@ -365,6 +366,7 @@ export type Database = {
           active_days?: string[]
           is_active?: boolean
           sort_order?: number
+          cover_image?: string | null
           created_at?: string
         }
         Update: {
@@ -377,6 +379,7 @@ export type Database = {
           active_days?: string[]
           is_active?: boolean
           sort_order?: number
+          cover_image?: string | null
           created_at?: string
         }
         Relationships: [
