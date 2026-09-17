@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ChefHat, CheckCircle, Clock, Eye, Loader2, Plus, RefreshCw, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,8 +61,17 @@ export default function Orders() {
     setIsLoading(false);
   }, [restaurant]);
 
+  // Carga inicial
   useEffect(() => {
     void loadOrders();
+  }, [loadOrders]);
+
+  // Ref estable para evitar dependencias circulares en el canal realtime
+  const loadOrdersRef = useRef(loadOrders);
+  useEffect(() => { loadOrdersRef.current = loadOrders; }, [loadOrders]);
+
+  // Canal realtime: solo se crea/destruye cuando cambia restaurant.id
+  useEffect(() => {
     if (!restaurant?.id) return;
 
     const channel = supabase
@@ -70,23 +79,21 @@ export default function Orders() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` },
-        () => {
-          void loadOrders();
-        }
+        () => { void loadOrdersRef.current(); }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_items", filter: `restaurant_id=eq.${restaurant.id}` },
-        () => {
-          void loadOrders();
-        }
+        () => { void loadOrdersRef.current(); }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[Orders realtime]", status);
+      });
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadOrders, restaurant?.id]);
+  }, [restaurant?.id]);
 
   const productById = useMemo(() => Object.fromEntries(products.map((product) => [product.id, product])), [products]);
   const tableById = useMemo(() => Object.fromEntries(tables.map((table) => [table.id, table])), [tables]);

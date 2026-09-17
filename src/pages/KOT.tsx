@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle, ChefHat, Clock, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,8 +36,17 @@ export default function KOT() {
     setIsLoading(false);
   }, [restaurant]);
 
+  // Carga inicial
   useEffect(() => {
     void loadKitchen();
+  }, [loadKitchen]);
+
+  // Ref estable para evitar dependencias circulares
+  const loadKitchenRef = useRef(loadKitchen);
+  useEffect(() => { loadKitchenRef.current = loadKitchen; }, [loadKitchen]);
+
+  // Canal realtime: solo se recrea cuando cambia restaurant.id
+  useEffect(() => {
     if (!restaurant?.id) return;
 
     const channel = supabase
@@ -45,23 +54,21 @@ export default function KOT() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` },
-        () => {
-          void loadKitchen();
-        }
+        () => { void loadKitchenRef.current(); }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_items", filter: `restaurant_id=eq.${restaurant.id}` },
-        () => {
-          void loadKitchen();
-        }
+        () => { void loadKitchenRef.current(); }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[KOT realtime]", status);
+      });
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadKitchen, restaurant?.id]);
+  }, [restaurant?.id]);
 
   const linesByOrder = useMemo(() => lines.reduce<Record<string, Line[]>>((result, line) => { (result[line.order_id] ||= []).push(line); return result; }, {}), [lines]);
   const advance = async (order: Order) => {
