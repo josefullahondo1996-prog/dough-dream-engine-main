@@ -72,7 +72,7 @@ export default function MenuItems() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
-  const [form, setForm] = useState({ name: "", price: "", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", available: true });
+  const [form, setForm] = useState({ name: "", price: "", stock: "10", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", available: true });
 
   const loadMenu = useCallback(async () => {
     if (!restaurant) {
@@ -126,7 +126,7 @@ export default function MenuItems() {
   };
 
   const resetForm = () => {
-    setForm({ name: "", price: "", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", available: true });
+    setForm({ name: "", price: "", stock: "10", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", available: true });
     setFormError("");
   };
 
@@ -135,8 +135,9 @@ export default function MenuItems() {
     if (!restaurant) return;
 
     const price = Number(form.price);
-    if (!form.name.trim() || !Number.isInteger(price) || price < 0) {
-      setFormError("Indica un nombre y un precio entero válido.");
+    const stock = Number(form.stock);
+    if (!form.name.trim() || !Number.isInteger(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
+      setFormError("Indica un nombre, precio y cantidad en stock válidos (números enteros >= 0).");
       return;
     }
 
@@ -146,6 +147,7 @@ export default function MenuItems() {
       restaurant_id: restaurant.id,
       name: form.name.trim(),
       price,
+      stock,
       description: form.description.trim() || null,
       emoji: form.emoji.trim() || fallbackEmoji,
       category_id: form.categoryId || null,
@@ -170,6 +172,7 @@ export default function MenuItems() {
     setForm({
       name: item.name,
       price: String(item.price),
+      stock: String(item.stock ?? 10),
       description: item.description || "",
       emoji: item.emoji || fallbackEmoji,
       categoryId: item.category_id || "",
@@ -184,8 +187,9 @@ export default function MenuItems() {
     if (!restaurant || !editingItem) return;
 
     const price = Number(form.price);
-    if (!form.name.trim() || !Number.isInteger(price) || price < 0) {
-      setFormError("Indica un nombre y un precio entero válido.");
+    const stock = Number(form.stock);
+    if (!form.name.trim() || !Number.isInteger(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
+      setFormError("Indica un nombre, precio y cantidad en stock válidos (números enteros >= 0).");
       return;
     }
 
@@ -196,6 +200,7 @@ export default function MenuItems() {
       .update({
         name: form.name.trim(),
         price,
+        stock,
         description: form.description.trim() || null,
         emoji: form.emoji.trim() || fallbackEmoji,
         category_id: form.categoryId || null,
@@ -305,16 +310,18 @@ export default function MenuItems() {
                 <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Producto</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Categoría</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Precio</th>
+                <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Stock (Cant.)</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Estado</th>
                 <th className="text-right text-xs font-medium text-muted-foreground px-5 py-3">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={5} className="py-12 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
+                <tr><td colSpan={6} className="py-12 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
               ) : filtered.map((item) => {
                 const dishImg = getDishImage(item);
                 const cleanName = getCleanName(item.name);
+                const itemStock = item.stock ?? 10;
 
                 return (
                   <tr key={item.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
@@ -350,11 +357,25 @@ export default function MenuItems() {
                   <td className="px-5 py-3.5">
                     <span
                       className={cn(
-                        "text-xs font-medium px-2.5 py-1 rounded-full",
-                        item.available ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                        "text-xs font-bold px-2.5 py-1 rounded-full",
+                        itemStock <= 0
+                          ? "bg-destructive/15 text-destructive border border-destructive/20"
+                          : itemStock <= 5
+                          ? "bg-warning/15 text-warning border border-warning/20"
+                          : "bg-secondary text-foreground"
                       )}
                     >
-                      {item.available ? "Disponible" : "No disponible"}
+                      {itemStock <= 0 ? "Agotado (0)" : `${itemStock} un.`}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span
+                      className={cn(
+                        "text-xs font-medium px-2.5 py-1 rounded-full",
+                        item.available && itemStock > 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                      )}
+                    >
+                      {item.available && itemStock > 0 ? "Disponible" : "Sin stock / Inactivo"}
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
@@ -391,9 +412,10 @@ export default function MenuItems() {
               <p className="mt-1 text-sm text-muted-foreground">El producto se guardará en {restaurant?.name}.</p>
             </div>
             
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <label className="text-sm font-medium text-card-foreground">Nombre *<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
               <label className="text-sm font-medium text-card-foreground">Precio (Gs.) *<input required min="0" step="1" type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
+              <label className="text-sm font-medium text-card-foreground">Stock (Cant.) *<input required min="0" step="1" type="number" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} placeholder="10" className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
             </div>
 
             <label className="block text-sm font-medium text-card-foreground">Categoría<select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring"><option value="">Sin categoría</option>{Object.entries(categoriesById).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
@@ -480,9 +502,10 @@ export default function MenuItems() {
           <form onSubmit={handleEdit} className="w-full max-w-lg space-y-4 rounded-2xl bg-card p-6 shadow-elevated my-8 max-h-[90vh] overflow-y-auto">
             <div><h2 id="edit-product-title" className="text-xl font-bold text-card-foreground">Editar producto</h2><p className="mt-1 text-sm text-muted-foreground">Actualiza la información del producto.</p></div>
             
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <label className="text-sm font-medium text-card-foreground">Nombre *<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
               <label className="text-sm font-medium text-card-foreground">Precio (Gs.) *<input required min="0" step="1" type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
+              <label className="text-sm font-medium text-card-foreground">Stock (Cant.) *<input required min="0" step="1" type="number" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
             </div>
 
             <label className="block text-sm font-medium text-card-foreground">Categoría<select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring"><option value="">Sin categoría</option>{Object.entries(categoriesById).map(([id, categoryName]) => <option key={id} value={id}>{categoryName}</option>)}</select></label>
