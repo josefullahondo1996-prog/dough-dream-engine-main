@@ -58,7 +58,7 @@ export default function Auth() {
           <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg">
             <ChefHat className="w-7 h-7 text-primary-foreground" />
           </div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Dough Dream</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">GastroFlowPy</p>
           <h1 className="text-3xl font-bold text-foreground mt-2">{isRegistering ? "Crea tu cuenta" : "Bienvenido de vuelta"}</h1>
           <p className="text-sm text-muted-foreground mt-2">Accede al panel operativo de tu restaurante</p>
         </div>
