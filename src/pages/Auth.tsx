@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, ChefHat, Loader2 } from "lucide-react";
+import { ArrowRight, ChefHat, Loader2, Sparkles, Shield, Zap, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/useAuth";
 
 function getAuthErrorMessage(error: Error) {
@@ -12,6 +12,12 @@ function getAuthErrorMessage(error: Error) {
   if (message.includes("rate limit")) return "Demasiados intentos. Espera unos minutos y vuelve a intentar.";
   return "No se pudo completar la autenticación. Revisa los datos e inténtalo de nuevo.";
 }
+
+const features = [
+  { icon: Zap, title: "Tiempo real", desc: "Órdenes y KOT sincronizados al instante" },
+  { icon: BarChart3, title: "Reportes", desc: "Análisis completo de ventas y stock" },
+  { icon: Shield, title: "Seguro", desc: "Acceso por roles con datos cifrados" },
+];
 
 export default function Auth() {
   const { signIn, signUp } = useAuth();
@@ -52,45 +58,204 @@ export default function Auth() {
   };
 
   return (
-    <main className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <ChefHat className="w-7 h-7 text-primary-foreground" />
+    <main className="min-h-screen flex">
+      {/* ── Panel izquierdo: branding ── */}
+      <div
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 40%, #16213e 70%, #0f3460 100%)",
+        }}
+      >
+        {/* Orbs decorativos */}
+        <div
+          style={{
+            position: "absolute", top: "-80px", right: "-80px",
+            width: "360px", height: "360px", borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(251,146,60,0.25) 0%, transparent 70%)",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute", bottom: "60px", left: "-60px",
+            width: "280px", height: "280px", borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Logo */}
+        <div className="relative z-10">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
+              style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
+            >
+              <ChefHat className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-white font-bold text-xl tracking-tight">GastroFlowPy</span>
           </div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">GastroFlowPy</p>
-          <h1 className="text-3xl font-bold text-foreground mt-2">{isRegistering ? "Crea tu cuenta" : "Bienvenido de vuelta"}</h1>
-          <p className="text-sm text-muted-foreground mt-2">Accede al panel operativo de tu restaurante</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-6 shadow-elevated space-y-4">
-          {isRegistering && (
-            <label htmlFor="full-name" className="block text-sm font-medium text-card-foreground">
-              Nombre completo
-              <input id="full-name" required value={fullName} onChange={(event) => setFullName(event.target.value)} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
-            </label>
-          )}
-          <label htmlFor="email" className="block text-sm font-medium text-card-foreground">
-            Correo electrónico
-            <input id="email" required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
-          </label>
-          <label htmlFor="password" className="block text-sm font-medium text-card-foreground">
-            Contraseña
-            <input id="password" required minLength={6} type="password" autoComplete={isRegistering ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
-          </label>
+        {/* Hero text */}
+        <div className="relative z-10 space-y-8">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 mb-6">
+              <Sparkles className="w-3.5 h-3.5 text-orange-400" />
+              <span className="text-orange-400 text-xs font-semibold tracking-wide uppercase">Sistema todo-en-uno</span>
+            </div>
+            <h2 className="text-4xl font-bold text-white leading-tight">
+              Gestiona tu restaurante{" "}
+              <span style={{ background: "linear-gradient(90deg, #f97316, #fb923c)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                sin límites
+              </span>
+            </h2>
+            <p className="text-slate-400 mt-4 text-base leading-relaxed">
+              Desde el pedido hasta el cierre de caja — todo conectado, todo en tiempo real.
+            </p>
+          </div>
 
-          {error && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-          {message && <p role="status" className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success">{message}</p>}
+          {/* Features */}
+          <div className="space-y-4">
+            {features.map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="flex items-start gap-4">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(249,115,22,0.15)", border: "1px solid rgba(249,115,22,0.3)" }}
+                >
+                  <Icon className="w-4 h-4 text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-sm">{title}</p>
+                  <p className="text-slate-500 text-sm">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-          <button disabled={isSubmitting} className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-            {isRegistering ? "Registrarme" : "Iniciar sesión"}
-          </button>
-        </form>
+        {/* Footer */}
+        <p className="relative z-10 text-slate-600 text-xs">
+          © 2026 GastroFlowPy · Todos los derechos reservados
+        </p>
+      </div>
 
-        <button onClick={() => { setIsRegistering((value) => !value); setError(""); setMessage(""); }} className="w-full mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          {isRegistering ? "¿Ya tienes una cuenta? Inicia sesión" : "¿Primera vez aquí? Crea una cuenta"}
-        </button>
+      {/* ── Panel derecho: formulario ── */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-background">
+        <div className="w-full max-w-[400px] space-y-8">
+
+          {/* Logo mobile */}
+          <div className="flex lg:hidden items-center gap-3 justify-center">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
+            >
+              <ChefHat className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-lg tracking-tight text-foreground">GastroFlowPy</span>
+          </div>
+
+          {/* Header */}
+          <div>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">
+              {isRegistering ? "Crear cuenta" : "Iniciar sesión"}
+            </h1>
+            <p className="text-muted-foreground mt-2 text-sm">
+              {isRegistering
+                ? "Registra tu restaurante y empieza gratis."
+                : "Accede a tu panel operativo."}
+            </p>
+          </div>
+
+          {/* Formulario */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {isRegistering && (
+              <div className="space-y-1.5">
+                <label htmlFor="full-name" className="text-sm font-medium text-foreground">
+                  Nombre completo
+                </label>
+                <input
+                  id="full-name"
+                  required
+                  placeholder="Juan Pérez"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-sm font-medium text-foreground">
+                Correo electrónico
+              </label>
+              <input
+                id="email"
+                required
+                type="email"
+                autoComplete="email"
+                placeholder="tu@restaurante.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-sm font-medium text-foreground">
+                Contraseña
+              </label>
+              <input
+                id="password"
+                required
+                minLength={6}
+                type="password"
+                autoComplete={isRegistering ? "new-password" : "current-password"}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3">
+                <p role="alert" className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+            {message && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">{message}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
+            >
+              {isSubmitting
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <ArrowRight className="w-4 h-4" />}
+              {isRegistering ? "Crear mi cuenta" : "Entrar al panel"}
+            </button>
+          </form>
+
+          {/* Toggle */}
+          <div className="text-center">
+            <button
+              onClick={() => { setIsRegistering((v) => !v); setError(""); setMessage(""); }}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isRegistering ? (
+                <>¿Ya tienes cuenta? <span className="font-semibold text-orange-500">Inicia sesión</span></>
+              ) : (
+                <>¿Aún no tienes cuenta? <span className="font-semibold text-orange-500">Regístrate gratis</span></>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     </main>
   );
