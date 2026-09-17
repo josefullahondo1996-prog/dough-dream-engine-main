@@ -36,7 +36,32 @@ export default function KOT() {
     setIsLoading(false);
   }, [restaurant]);
 
-  useEffect(() => { void loadKitchen(); }, [loadKitchen]);
+  useEffect(() => {
+    void loadKitchen();
+    if (!restaurant?.id) return;
+
+    const channel = supabase
+      .channel(`kot-live-sync-${restaurant.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` },
+        () => {
+          void loadKitchen();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_items", filter: `restaurant_id=eq.${restaurant.id}` },
+        () => {
+          void loadKitchen();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadKitchen, restaurant?.id]);
 
   const linesByOrder = useMemo(() => lines.reduce<Record<string, Line[]>>((result, line) => { (result[line.order_id] ||= []).push(line); return result; }, {}), [lines]);
   const advance = async (order: Order) => {

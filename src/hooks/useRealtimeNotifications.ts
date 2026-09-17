@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { useNotificationSound } from "./useNotificationSound";
+import { toast } from "sonner";
 
 export function useRealtimeNotifications() {
   const { restaurant } = useAuth();
@@ -17,8 +18,13 @@ export function useRealtimeNotifications() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` },
-        () => {
+        (payload) => {
           playNotificationSound();
+          const newOrder = payload.new as { id?: string; total?: number };
+          const totalStr = newOrder.total ? ` (Gs. ${newOrder.total.toLocaleString()})` : "";
+          toast.success(`🔔 ¡Nuevo pedido recibido! ${totalStr}`, {
+            description: "La lista de órdenes se ha actualizado en tiempo real.",
+          });
           void queryClient.invalidateQueries({ queryKey: ["orders"] });
         }
       )

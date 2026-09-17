@@ -61,7 +61,32 @@ export default function Orders() {
     setIsLoading(false);
   }, [restaurant]);
 
-  useEffect(() => { void loadOrders(); }, [loadOrders]);
+  useEffect(() => {
+    void loadOrders();
+    if (!restaurant?.id) return;
+
+    const channel = supabase
+      .channel(`orders-live-sync-${restaurant.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` },
+        () => {
+          void loadOrders();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_items", filter: `restaurant_id=eq.${restaurant.id}` },
+        () => {
+          void loadOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadOrders, restaurant?.id]);
 
   const productById = useMemo(() => Object.fromEntries(products.map((product) => [product.id, product])), [products]);
   const tableById = useMemo(() => Object.fromEntries(tables.map((table) => [table.id, table])), [tables]);
