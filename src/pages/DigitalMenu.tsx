@@ -65,6 +65,7 @@ export default function DigitalMenu() {
   const [restaurant, setRestaurant] = useState<Tables<"restaurants"> | null>(null);
   const [categories, setCategories] = useState<Tables<"menu_categories">[]>([]);
   const [items, setItems] = useState<Tables<"menu_items">[]>([]);
+  const [schedules, setSchedules] = useState<Tables<"menu_schedules">[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -97,9 +98,10 @@ export default function DigitalMenu() {
         return;
       }
 
-      const [categoriesResult, itemsResult] = await Promise.all([
+      const [categoriesResult, itemsResult, schedulesResult] = await Promise.all([
         supabase.from("menu_categories").select("*").eq("restaurant_id", restaurantData.id).order("name"),
         supabase.from("menu_items").select("*").eq("restaurant_id", restaurantData.id).eq("available", true).order("name"),
+        supabase.from("menu_schedules").select("*").eq("restaurant_id", restaurantData.id).eq("is_active", true).order("sort_order"),
       ]);
 
       if (tableId) {
@@ -119,6 +121,7 @@ export default function DigitalMenu() {
       setRestaurant(restaurantData);
       setCategories(categoriesResult.data ?? []);
       setItems(itemsResult.data ?? []);
+      setSchedules(schedulesResult.data ?? []);
       setIsLoading(false);
     };
 
@@ -133,6 +136,34 @@ export default function DigitalMenu() {
       return matchCategory && matchSearch;
     });
   }, [activeCategory, searchQuery, items]);
+
+  // Helper: is a schedule currently active?
+  const isScheduleNowActive = (schedule: Tables<"menu_schedules">) => {
+    const now = new Date();
+    const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const todayName = dayNames[now.getDay()];
+    if (!schedule.active_days.includes(todayName)) return false;
+    const [sh, sm] = schedule.start_time.split(":").map(Number);
+    const [eh, em] = schedule.end_time.split(":").map(Number);
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    return nowMins >= sh * 60 + sm && nowMins <= eh * 60 + em;
+  };
+
+  // Group filtered items by schedule
+  const groupedBySchedule = useMemo(() => {
+    const groups: { schedule: Tables<"menu_schedules"> | null; items: typeof filteredItems }[] = [];
+    // Items with a schedule
+    for (const schedule of schedules) {
+      const scheduleItems = filteredItems.filter((i) => i.menu_schedule_id === schedule.id);
+      if (scheduleItems.length > 0) groups.push({ schedule, items: scheduleItems });
+    }
+    // Items without schedule => "Carta General"
+    const unassigned = filteredItems.filter((i) => !i.menu_schedule_id);
+    if (unassigned.length > 0) groups.push({ schedule: null, items: unassigned });
+    // If no schedules configured at all, show everything flat
+    if (schedules.length === 0) return [{ schedule: null, items: filteredItems }];
+    return groups;
+  }, [filteredItems, schedules]);
 
   const cartLines = useMemo(
     () => items.filter((item) => cart[item.id]).map((item) => ({ item, quantity: cart[item.id] })),
@@ -334,108 +365,118 @@ export default function DigitalMenu() {
               ))}
             </div>
 
-            {/* Menu Items Grid */}
-            <div className="mt-5 space-y-3 pb-8">
-              {filteredItems.length === 0 && (
+            {/* Menu Items — grouped by schedule */}
+            <div className="mt-5 space-y-8 pb-8">
+              {groupedBySchedule.length === 0 && (
                 <div className="rounded-3xl border border-dashed border-orange-200 bg-[#fffaf5] p-8 text-center text-sm text-gray-500">
                   No se encontraron platos que coincidan con la búsqueda.
                 </div>
               )}
 
-              {filteredItems.map((item) => {
-                const inCartQty = cart[item.id] || 0;
-                const isFav = favorites[item.id];
-                const dishImg = getDishImage(item);
-                const cleanName = getCleanName(item.name);
-                const cleanDesc = item.description ? item.description.replace(/(https?:\/\/[^\s]+|data:image\/[^\s]+)/g, "").trim() : "";
-
+              {groupedBySchedule.map(({ schedule, items: groupItems }) => {
+                const isActive = schedule ? isScheduleNowActive(schedule) : false;
                 return (
-                  <article
-                    key={item.id}
-                    onClick={() => setSelectedItem(item)}
-                    className="group relative cursor-pointer rounded-2xl border border-orange-100 bg-white p-3.5 shadow-sm transition hover:shadow-md hover:border-orange-300 flex gap-3.5 items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                      <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-100 to-amber-100 shadow-inner overflow-hidden">
-                        {dishImg ? (
-                          <img
-                            src={dishImg}
-                            alt={cleanName}
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = "none";
-                            }}
-                            className="h-full w-full object-cover group-hover:scale-105 transition duration-300"
-                          />
-                        ) : (
-                          <span className="text-3xl">{item.emoji || "🍽️"}</span>
-                        )}
-                        <button
-                          onClick={(e) => toggleFavorite(item.id, e)}
-                          className="absolute top-1 left-1 p-1 rounded-full bg-white/90 shadow text-rose-500 hover:scale-110 transition backdrop-blur-xs"
-                        >
-                          <Heart className={`w-3.5 h-3.5 ${isFav ? "fill-rose-500 text-rose-500" : "text-gray-300"}`} />
-                        </button>
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="truncate text-base font-bold text-gray-900 group-hover:text-orange-600 transition">
-                            {cleanName}
-                          </h3>
-                        </div>
-
-                        {cleanDesc && (
-                          <p className="mt-0.5 text-xs text-gray-500 line-clamp-2 leading-relaxed">
-                            {cleanDesc}
+                  <section key={schedule?.id ?? "general"}>
+                    {/* Schedule Banner */}
+                    {schedule ? (
+                      <div
+                        className={`mb-4 flex items-center justify-between gap-3 rounded-2xl px-5 py-3.5 ${
+                          isActive
+                            ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg"
+                            : "bg-orange-50 border border-orange-200 text-orange-900"
+                        }`}
+                      >
+                        <div>
+                          <p className={`text-[10px] font-bold uppercase tracking-widest ${ isActive ? "text-orange-100" : "text-orange-500" }`}>
+                            {isActive ? "⏰ Disponible ahora" : "🕒 Próximamente"}
                           </p>
-                        )}
-
-                        <div className="mt-2 flex items-center gap-2">
-                          <span className="text-sm font-extrabold text-orange-600">
-                            Gs. {item.price.toLocaleString()}
-                          </span>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> 4.9
-                          </span>
+                          <h3 className="font-bold text-base mt-0.5">{schedule.name}</h3>
+                          {schedule.description && (
+                            <p className={`text-xs mt-0.5 ${ isActive ? "text-orange-100" : "text-orange-700" }`}>
+                              {schedule.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className={`text-right shrink-0 ${ isActive ? "text-orange-100" : "text-orange-600" }`}>
+                          <p className="text-sm font-semibold">{schedule.start_time} – {schedule.end_time}</p>
+                          <p className="text-[10px] mt-0.5">{schedule.active_days.join(", ")}</p>
                         </div>
                       </div>
-                    </div>
+                    ) : schedules.length > 0 ? (
+                      <div className="mb-4 flex items-center gap-2">
+                        <div className="h-px flex-1 bg-orange-200" />
+                        <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">Carta General</span>
+                        <div className="h-px flex-1 bg-orange-200" />
+                      </div>
+                    ) : null}
 
-                    {/* Cart Controls */}
-                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      {inCartQty > 0 ? (
-                        <div className="flex items-center gap-2 bg-orange-50 rounded-2xl p-1 border border-orange-200">
-                          <button
-                            type="button"
-                            onClick={() => updateCart(item.id, -1)}
-                            className="h-8 w-8 rounded-xl bg-white text-orange-600 font-bold shadow-sm flex items-center justify-center hover:bg-orange-100"
+                    <div className="space-y-3">
+                      {groupItems.map((item) => {
+                        const inCartQty = cart[item.id] || 0;
+                        const isFav = favorites[item.id];
+                        const dishImg = getDishImage(item);
+                        const cleanName = getCleanName(item.name);
+                        const cleanDesc = item.description ? item.description.replace(/(https?:\/\/[^\s]+|data:image\/[^\s]+)/g, "").trim() : "";
+                        return (
+                          <article
+                            key={item.id}
+                            onClick={() => setSelectedItem(item)}
+                            className="group relative cursor-pointer rounded-2xl border border-orange-100 bg-white p-3.5 shadow-sm transition hover:shadow-md hover:border-orange-300 flex gap-3.5 items-center justify-between"
                           >
-                            <Minus className="h-3.5 w-3.5" />
-                          </button>
-                          <span className="w-4 text-center text-xs font-bold text-orange-900">{inCartQty}</span>
-                          <button
-                            type="button"
-                            onClick={() => updateCart(item.id, 1)}
-                            className="h-8 w-8 rounded-xl bg-orange-500 text-white font-bold shadow-sm flex items-center justify-center hover:bg-orange-600"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => updateCart(item.id, 1)}
-                          className="inline-flex items-center gap-1.5 rounded-2xl bg-orange-500 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-95"
-                        >
-                          <Plus className="h-4 w-4" />
-                          Pedir
-                        </button>
-                      )}
+                            <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                              <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-100 to-amber-100 shadow-inner overflow-hidden">
+                                {dishImg ? (
+                                  <img
+                                    src={dishImg}
+                                    alt={cleanName}
+                                    onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }}
+                                    className="h-full w-full object-cover group-hover:scale-105 transition duration-300"
+                                  />
+                                ) : (
+                                  <span className="text-3xl">{item.emoji || "🍽️"}</span>
+                                )}
+                                <button
+                                  onClick={(e) => toggleFavorite(item.id, e)}
+                                  className="absolute top-1 left-1 p-1 rounded-full bg-white/90 shadow text-rose-500 hover:scale-110 transition"
+                                >
+                                  <Heart className={`w-3.5 h-3.5 ${isFav ? "fill-rose-500 text-rose-500" : "text-gray-300"}`} />
+                                </button>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="truncate text-base font-bold text-gray-900 group-hover:text-orange-600 transition">{cleanName}</h3>
+                                </div>
+                                {cleanDesc && <p className="mt-0.5 text-xs text-gray-500 line-clamp-2 leading-relaxed">{cleanDesc}</p>}
+                                <div className="mt-2 flex items-center gap-2">
+                                  <span className="text-sm font-extrabold text-orange-600">Gs. {item.price.toLocaleString()}</span>
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> 4.9
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              {inCartQty > 0 ? (
+                                <div className="flex items-center gap-2 bg-orange-50 rounded-2xl p-1 border border-orange-200">
+                                  <button type="button" onClick={() => updateCart(item.id, -1)} className="h-8 w-8 rounded-xl bg-white text-orange-600 font-bold shadow-sm flex items-center justify-center hover:bg-orange-100"><Minus className="h-3.5 w-3.5" /></button>
+                                  <span className="w-4 text-center text-xs font-bold text-orange-900">{inCartQty}</span>
+                                  <button type="button" onClick={() => updateCart(item.id, 1)} className="h-8 w-8 rounded-xl bg-orange-500 text-white font-bold shadow-sm flex items-center justify-center hover:bg-orange-600"><Plus className="h-3.5 w-3.5" /></button>
+                                </div>
+                              ) : (
+                                <button type="button" onClick={() => updateCart(item.id, 1)} className="inline-flex items-center gap-1.5 rounded-2xl bg-orange-500 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-orange-600 active:scale-95">
+                                  <Plus className="h-4 w-4" /> Pedir
+                                </button>
+                              )}
+                            </div>
+                          </article>
+                        );
+                      })}
                     </div>
-                  </article>
+                  </section>
                 );
               })}
             </div>
+
           </div>
         </div>
       </div>

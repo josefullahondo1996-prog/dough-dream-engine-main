@@ -342,10 +342,58 @@ export type Database = {
         }
         Relationships: []
       }
+      menu_schedules: {
+        Row: {
+          id: string
+          restaurant_id: string
+          name: string
+          description: string | null
+          start_time: string
+          end_time: string
+          active_days: string[]
+          is_active: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          restaurant_id: string
+          name: string
+          description?: string | null
+          start_time: string
+          end_time: string
+          active_days?: string[]
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          restaurant_id?: string
+          name?: string
+          description?: string | null
+          start_time?: string
+          end_time?: string
+          active_days?: string[]
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_schedules_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_items: {
         Row: {
           available: boolean
           category_id: string | null
+          menu_schedule_id: string | null
           created_at: string
           description: string | null
           emoji: string | null
@@ -358,6 +406,7 @@ export type Database = {
         Insert: {
           available?: boolean
           category_id?: string | null
+          menu_schedule_id?: string | null
           created_at?: string
           description?: string | null
           emoji?: string | null
@@ -370,6 +419,7 @@ export type Database = {
         Update: {
           available?: boolean
           category_id?: string | null
+          menu_schedule_id?: string | null
           created_at?: string
           description?: string | null
           emoji?: string | null
@@ -385,6 +435,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "menu_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_items_menu_schedule_id_fkey"
+            columns: ["menu_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "menu_schedules"
             referencedColumns: ["id"]
           },
         ]

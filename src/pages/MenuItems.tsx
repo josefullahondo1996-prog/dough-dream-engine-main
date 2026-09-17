@@ -63,6 +63,7 @@ export default function MenuItems() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [categoriesById, setCategoriesById] = useState<Record<string, string>>({});
+  const [schedules, setSchedules] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("Todas");
   const [isLoading, setIsLoading] = useState(true);
@@ -71,7 +72,7 @@ export default function MenuItems() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
-  const [form, setForm] = useState({ name: "", price: "", description: "", emoji: "🍽️", categoryId: "", available: true });
+  const [form, setForm] = useState({ name: "", price: "", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", available: true });
 
   const loadMenu = useCallback(async () => {
     if (!restaurant) {
@@ -84,9 +85,10 @@ export default function MenuItems() {
 
     setIsLoading(true);
     setError("");
-    const [itemsResult, categoriesResult] = await Promise.all([
+    const [itemsResult, categoriesResult, schedulesResult] = await Promise.all([
       supabase.from("menu_items").select("*").eq("restaurant_id", restaurant.id).order("name"),
       supabase.from("menu_categories").select("*").eq("restaurant_id", restaurant.id).order("name"),
+      supabase.from("menu_schedules").select("id, name").eq("restaurant_id", restaurant.id).eq("is_active", true).order("sort_order"),
     ]);
 
     if (itemsResult.error || categoriesResult.error) {
@@ -98,6 +100,7 @@ export default function MenuItems() {
     setItems(itemsResult.data ?? []);
     setCategoryMap(Object.fromEntries((categoriesResult.data ?? []).map((category) => [category.id, category.name])));
     setCategoriesById(Object.fromEntries((categoriesResult.data ?? []).map((category) => [category.id, category.name])));
+    setSchedules(schedulesResult.data ?? []);
     setIsLoading(false);
   }, [restaurant]);
 
@@ -123,7 +126,7 @@ export default function MenuItems() {
   };
 
   const resetForm = () => {
-    setForm({ name: "", price: "", description: "", emoji: "🍽️", categoryId: "", available: true });
+    setForm({ name: "", price: "", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", available: true });
     setFormError("");
   };
 
@@ -146,6 +149,7 @@ export default function MenuItems() {
       description: form.description.trim() || null,
       emoji: form.emoji.trim() || fallbackEmoji,
       category_id: form.categoryId || null,
+      menu_schedule_id: form.scheduleId || null,
       available: form.available,
     });
 
@@ -169,6 +173,7 @@ export default function MenuItems() {
       description: item.description || "",
       emoji: item.emoji || fallbackEmoji,
       categoryId: item.category_id || "",
+      scheduleId: item.menu_schedule_id || "",
       available: item.available,
     });
     setFormError("");
@@ -194,6 +199,7 @@ export default function MenuItems() {
         description: form.description.trim() || null,
         emoji: form.emoji.trim() || fallbackEmoji,
         category_id: form.categoryId || null,
+        menu_schedule_id: form.scheduleId || null,
         available: form.available,
       })
       .eq("id", editingItem.id)
@@ -392,6 +398,8 @@ export default function MenuItems() {
 
             <label className="block text-sm font-medium text-card-foreground">Categoría<select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring"><option value="">Sin categoría</option>{Object.entries(categoriesById).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
 
+            <label className="block text-sm font-medium text-card-foreground">Turno del Menú<select value={form.scheduleId} onChange={(event) => setForm({ ...form, scheduleId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring"><option value="">Sin turno asignado</option>{schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+
             {/* Imagen del Plato */}
             <div className="space-y-3 rounded-xl border border-border bg-secondary/20 p-4">
               <div className="flex items-center justify-between">
@@ -478,6 +486,8 @@ export default function MenuItems() {
             </div>
 
             <label className="block text-sm font-medium text-card-foreground">Categoría<select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring"><option value="">Sin categoría</option>{Object.entries(categoriesById).map(([id, categoryName]) => <option key={id} value={id}>{categoryName}</option>)}</select></label>
+
+            <label className="block text-sm font-medium text-card-foreground">Turno del Menú<select value={form.scheduleId} onChange={(event) => setForm({ ...form, scheduleId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring"><option value="">Sin turno asignado</option>{schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
 
             {/* Imagen del Plato */}
             <div className="space-y-3 rounded-xl border border-border bg-secondary/20 p-4">
