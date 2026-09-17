@@ -205,14 +205,23 @@ export default function DigitalMenu() {
       const newOrderId = data[0].order_id;
       setSubmittedOrder(newOrderId.slice(0, 8));
       
-      // Notificar en tiempo real por Broadcast a KOT y Cocina
+      // Marcar la mesa como ocupada automáticamente
+      if (tableId) {
+        try {
+          await supabase.from("restaurant_tables").update({ status: "ocupada" }).eq("id", tableId);
+        } catch (err) {
+          console.error("No se pudo actualizar el estado de la mesa:", err);
+        }
+      }
+
+      // Notificar en tiempo real por Broadcast a KOT, Mesas y Cocina
       if (restaurantData?.id) {
         try {
           const liveChannel = supabase.channel(`restaurant-live-${restaurantData.id}`);
           void liveChannel.send({
             type: "broadcast",
             event: "new_qr_order",
-            payload: { orderId: newOrderId, tableName: tableData?.name || "Mesa QR" },
+            payload: { orderId: newOrderId, tableName: tableData?.name || "Mesa QR", tableId },
           });
         } catch (err) {
           console.error("Error al transmitir orden:", err);

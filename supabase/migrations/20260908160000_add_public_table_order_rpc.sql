@@ -62,6 +62,11 @@ BEGIN
   )
   RETURNING id INTO new_order_id;
 
+  -- Marcar la mesa correspondiente como Ocupada
+  UPDATE public.restaurant_tables
+  SET status = 'ocupada'
+  WHERE id = target_table.id;
+
   FOR line IN SELECT * FROM jsonb_array_elements(p_items) LOOP
     line_product_id := (line->>'product_id')::UUID;
     line_quantity := (line->>'quantity')::INTEGER;

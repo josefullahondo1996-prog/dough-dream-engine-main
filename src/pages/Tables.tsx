@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Armchair, Loader2, Plus, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,9 +26,9 @@ export default function Tables() {
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", seats: "4", areaId: "" });
 
-  const loadTables = useCallback(async () => {
+  const loadTables = useCallback(async (isSilent = false) => {
     if (!restaurant) { setAreas([]); setTables([]); setIsLoading(false); return; }
-    setIsLoading(true);
+    if (!isSilent) setIsLoading(true);
     const [areasResult, tablesResult] = await Promise.all([
       supabase.from("restaurant_areas").select("*").eq("restaurant_id", restaurant.id).order("name"),
       supabase.from("restaurant_tables").select("*").eq("restaurant_id", restaurant.id).order("name"),
@@ -38,7 +38,30 @@ export default function Tables() {
     setIsLoading(false);
   }, [restaurant]);
 
-  useEffect(() => { void loadTables(); }, [loadTables]);
+  useEffect(() => { void loadTables(false); }, [loadTables]);
+
+  const loadTablesRef = useRef(loadTables);
+  useEffect(() => { loadTablesRef.current = loadTables; }, [loadTables]);
+
+  // Realtime multi-capa para Mesas (Broadcast + Postgres Changes)
+  useEffect(() => {
+    if (!restaurant?.id) return;
+
+    const channel = supabase
+      .channel(`tables-live-sync-${restaurant.id}`)
+      .on("broadcast", { event: "new_qr_order" }, () => { void loadTablesRef.current(true); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "restaurant_tables", filter: `restaurant_id=eq.${restaurant.id}` }, () => { void loadTablesRef.current(true); })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [restaurant?.id]);
+
+  // Polling silencioso de respaldo cada 4 segundos
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    const interval = setInterval(() => { void loadTablesRef.current(true); }, 4000);
+    return () => clearInterval(interval);
+  }, [restaurant?.id]);
 
   const visibleTables = useMemo(() => activeArea === "Todas" ? tables : tables.filter((table) => table.area_id === activeArea), [activeArea, tables]);
   const areaName = (areaId: string | null) => areas.find((area) => area.id === areaId)?.name || "Sin área";
