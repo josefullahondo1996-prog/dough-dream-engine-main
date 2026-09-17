@@ -202,7 +202,23 @@ export default function DigitalMenu() {
     if (submitError || !data?.[0]) {
       setError(submitError?.message || "No se pudo enviar el pedido.");
     } else {
-      setSubmittedOrder(data[0].order_id.slice(0, 8));
+      const newOrderId = data[0].order_id;
+      setSubmittedOrder(newOrderId.slice(0, 8));
+      
+      // Notificar en tiempo real por Broadcast a KOT y Cocina
+      if (restaurantData?.id) {
+        try {
+          const liveChannel = supabase.channel(`restaurant-live-${restaurantData.id}`);
+          void liveChannel.send({
+            type: "broadcast",
+            event: "new_qr_order",
+            payload: { orderId: newOrderId, tableName: tableData?.name || "Mesa QR" },
+          });
+        } catch (err) {
+          console.error("Error al transmitir orden:", err);
+        }
+      }
+
       setCart({});
       setCustomerName("");
       setNotes("");

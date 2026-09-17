@@ -70,12 +70,17 @@ export default function Orders() {
   const loadOrdersRef = useRef(loadOrders);
   useEffect(() => { loadOrdersRef.current = loadOrders; }, [loadOrders]);
 
-  // Canal realtime: solo se crea/destruye cuando cambia restaurant.id
+  // Canal realtime (Broadcast + Postgres changes)
   useEffect(() => {
     if (!restaurant?.id) return;
 
     const channel = supabase
       .channel(`orders-live-sync-${restaurant.id}`)
+      .on(
+        "broadcast",
+        { event: "new_qr_order" },
+        () => { void loadOrdersRef.current(); }
+      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurant.id}` },
@@ -93,6 +98,15 @@ export default function Orders() {
     return () => {
       void supabase.removeChannel(channel);
     };
+  }, [restaurant?.id]);
+
+  // Polling silencioso de respaldo
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    const interval = setInterval(() => {
+      void loadOrdersRef.current();
+    }, 5000);
+    return () => clearInterval(interval);
   }, [restaurant?.id]);
 
   const productById = useMemo(() => Object.fromEntries(products.map((product) => [product.id, product])), [products]);
