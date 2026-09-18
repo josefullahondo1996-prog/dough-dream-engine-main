@@ -64,6 +64,8 @@ export default function MenuItems() {
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [categoriesById, setCategoriesById] = useState<Record<string, string>>({});
   const [schedules, setSchedules] = useState<{ id: string; name: string }[]>([]);
+  const [unitsList, setUnitsList] = useState<{ id: string; name: string; symbol: string }[]>([]);
+  const [unitsById, setUnitsById] = useState<Record<string, { name: string; symbol: string }>>({});
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("Todas");
   const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +74,18 @@ export default function MenuItems() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
-  const [form, setForm] = useState({ name: "", price: "", stock: "10", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", available: true });
+  const [form, setForm] = useState({
+    name: "",
+    price: "",
+    stock: "10",
+    description: "",
+    emoji: "🍽️",
+    categoryId: "",
+    scheduleId: "",
+    unitId: "",
+    unitValue: "1",
+    available: true,
+  });
 
   const loadMenu = useCallback(async () => {
     if (!restaurant) {
@@ -85,10 +98,11 @@ export default function MenuItems() {
 
     setIsLoading(true);
     setError("");
-    const [itemsResult, categoriesResult, schedulesResult] = await Promise.all([
+    const [itemsResult, categoriesResult, schedulesResult, unitsResult] = await Promise.all([
       supabase.from("menu_items").select("*").eq("restaurant_id", restaurant.id).order("name"),
       supabase.from("menu_categories").select("*").eq("restaurant_id", restaurant.id).order("name"),
       supabase.from("menu_schedules").select("id, name").eq("restaurant_id", restaurant.id).eq("is_active", true).order("sort_order"),
+      supabase.from("units_of_measure").select("id, name, symbol").eq("restaurant_id", restaurant.id).order("name"),
     ]);
 
     if (itemsResult.error || categoriesResult.error) {
@@ -101,6 +115,12 @@ export default function MenuItems() {
     setCategoryMap(Object.fromEntries((categoriesResult.data ?? []).map((category) => [category.id, category.name])));
     setCategoriesById(Object.fromEntries((categoriesResult.data ?? []).map((category) => [category.id, category.name])));
     setSchedules(schedulesResult.data ?? []);
+    
+    if (unitsResult.data) {
+      setUnitsList(unitsResult.data);
+      setUnitsById(Object.fromEntries(unitsResult.data.map((u) => [u.id, { name: u.name, symbol: u.symbol }])));
+    }
+
     setIsLoading(false);
   }, [restaurant]);
 
@@ -126,7 +146,7 @@ export default function MenuItems() {
   };
 
   const resetForm = () => {
-    setForm({ name: "", price: "", stock: "10", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", available: true });
+    setForm({ name: "", price: "", stock: "10", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", unitId: "", unitValue: "1", available: true });
     setFormError("");
   };
 
@@ -152,6 +172,8 @@ export default function MenuItems() {
       emoji: form.emoji.trim() || fallbackEmoji,
       category_id: form.categoryId || null,
       menu_schedule_id: form.scheduleId || null,
+      unit_id: form.unitId || null,
+      unit_value: Number(form.unitValue) || 1,
       available: form.available,
     });
 
@@ -177,6 +199,8 @@ export default function MenuItems() {
       emoji: item.emoji || fallbackEmoji,
       categoryId: item.category_id || "",
       scheduleId: item.menu_schedule_id || "",
+      unitId: item.unit_id || "",
+      unitValue: String(item.unit_value ?? 1),
       available: item.available,
     });
     setFormError("");
@@ -205,6 +229,8 @@ export default function MenuItems() {
         emoji: form.emoji.trim() || fallbackEmoji,
         category_id: form.categoryId || null,
         menu_schedule_id: form.scheduleId || null,
+        unit_id: form.unitId || null,
+        unit_value: Number(form.unitValue) || 1,
         available: form.available,
       })
       .eq("id", editingItem.id)
@@ -339,7 +365,19 @@ export default function MenuItems() {
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-card-foreground truncate">{cleanName}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-bold text-card-foreground truncate">{cleanName}</p>
+                            {item.is_combo && (
+                              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-400">
+                                Combo
+                              </span>
+                            )}
+                            {item.unit_id && unitsById[item.unit_id] && (
+                              <span className="px-2 py-0.5 text-[10px] font-mono font-medium rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                {item.unit_value ?? 1} {unitsById[item.unit_id].symbol}
+                              </span>
+                            )}
+                          </div>
                           {item.description && !isImageUrl(item.description) && (
                             <p className="text-xs text-muted-foreground truncate max-w-[240px]">{item.description}</p>
                           )}
@@ -418,9 +456,50 @@ export default function MenuItems() {
               <label className="text-sm font-medium text-card-foreground">Stock (Cant.) *<input required min="0" step="1" type="number" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} placeholder="10" className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
             </div>
 
-            <label className="block text-sm font-medium text-card-foreground">Categoría<select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring"><option value="">Sin categoría</option>{Object.entries(categoriesById).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="block text-sm font-medium text-card-foreground">
+                Categoría
+                <select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">Sin categoría</option>
+                  {Object.entries(categoriesById).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                </select>
+              </label>
 
-            <label className="block text-sm font-medium text-card-foreground">Turno del Menú<select value={form.scheduleId} onChange={(event) => setForm({ ...form, scheduleId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring"><option value="">Sin turno asignado</option>{schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+              <label className="block text-sm font-medium text-card-foreground">
+                Turno del Menú
+                <select value={form.scheduleId} onChange={(event) => setForm({ ...form, scheduleId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">Sin turno asignado</option>
+                  {schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </label>
+            </div>
+
+            {/* Unidad de Medida y Presentación */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/30 p-3 rounded-xl border border-border">
+              <label className="block text-sm font-medium text-card-foreground">
+                Unidad de Medida
+                <select value={form.unitId} onChange={(event) => setForm({ ...form, unitId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 font-normal outline-none focus:ring-2 focus:ring-ring text-sm">
+                  <option value="">Ninguna / Unidad por defecto</option>
+                  {unitsList.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.symbol})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-sm font-medium text-card-foreground">
+                Presentación / Cantidad
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Ej: 1.5, 500, 1"
+                  value={form.unitValue}
+                  onChange={(event) => setForm({ ...form, unitValue: event.target.value })}
+                  className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 font-normal outline-none focus:ring-2 focus:ring-ring text-sm"
+                />
+              </label>
+            </div>
 
             {/* Imagen del Plato */}
             <div className="space-y-3 rounded-xl border border-border bg-secondary/20 p-4">
@@ -508,9 +587,50 @@ export default function MenuItems() {
               <label className="text-sm font-medium text-card-foreground">Stock (Cant.) *<input required min="0" step="1" type="number" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
             </div>
 
-            <label className="block text-sm font-medium text-card-foreground">Categoría<select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring"><option value="">Sin categoría</option>{Object.entries(categoriesById).map(([id, categoryName]) => <option key={id} value={id}>{categoryName}</option>)}</select></label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="block text-sm font-medium text-card-foreground">
+                Categoría
+                <select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">Sin categoría</option>
+                  {Object.entries(categoriesById).map(([id, categoryName]) => <option key={id} value={id}>{categoryName}</option>)}
+                </select>
+              </label>
 
-            <label className="block text-sm font-medium text-card-foreground">Turno del Menú<select value={form.scheduleId} onChange={(event) => setForm({ ...form, scheduleId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring"><option value="">Sin turno asignado</option>{schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+              <label className="block text-sm font-medium text-card-foreground">
+                Turno del Menú
+                <select value={form.scheduleId} onChange={(event) => setForm({ ...form, scheduleId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">Sin turno asignado</option>
+                  {schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </label>
+            </div>
+
+            {/* Unidad de Medida y Presentación */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/30 p-3 rounded-xl border border-border">
+              <label className="block text-sm font-medium text-card-foreground">
+                Unidad de Medida
+                <select value={form.unitId} onChange={(event) => setForm({ ...form, unitId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 font-normal outline-none focus:ring-2 focus:ring-ring text-sm">
+                  <option value="">Ninguna / Unidad por defecto</option>
+                  {unitsList.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.symbol})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-sm font-medium text-card-foreground">
+                Presentación / Cantidad
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Ej: 1.5, 500, 1"
+                  value={form.unitValue}
+                  onChange={(event) => setForm({ ...form, unitValue: event.target.value })}
+                  className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 font-normal outline-none focus:ring-2 focus:ring-ring text-sm"
+                />
+              </label>
+            </div>
 
             {/* Imagen del Plato */}
             <div className="space-y-3 rounded-xl border border-border bg-secondary/20 p-4">

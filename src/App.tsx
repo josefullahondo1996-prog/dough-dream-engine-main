@@ -32,6 +32,8 @@ const ServiceRequests = lazy(() => import("./pages/ServiceRequests"));
 const Reservaciones = lazy(() => import("./pages/Reservaciones"));
 const MenusPage = lazy(() => import("./pages/MenusPage"));
 const ModificadoresPage = lazy(() => import("./pages/ModificadoresPage"));
+const UnitsPage = lazy(() => import("./pages/UnitsPage"));
+const CombosPage = lazy(() => import("./pages/CombosPage"));
 const PagosPage = lazy(() => import("./pages/PagosPage"));
 const DeliveryPage = lazy(() => import("./pages/DeliveryPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -61,6 +63,8 @@ const App = () => (
             <Route path="/menu-items" element={<MenuItems />} />
             <Route path="/categorias" element={<Categories />} />
             <Route path="/modificadores" element={<ModificadoresPage />} />
+            <Route path="/unidades" element={<UnitsPage />} />
+            <Route path="/combos" element={<CombosPage />} />
             <Route path="/areas" element={<Areas />} />
             <Route path="/mesas" element={<Tables />} />
             <Route path="/codigos-qr" element={<QrCodes />} />

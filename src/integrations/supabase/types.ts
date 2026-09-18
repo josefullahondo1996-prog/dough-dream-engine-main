@@ -405,6 +405,9 @@ export type Database = {
           price: number
           restaurant_id: string
           stock: number
+          unit_id: string | null
+          unit_value: number
+          is_combo: boolean
         }
         Insert: {
           available?: boolean
@@ -418,6 +421,9 @@ export type Database = {
           price?: number
           restaurant_id: string
           stock?: number
+          unit_id?: string | null
+          unit_value?: number
+          is_combo?: boolean
         }
         Update: {
           available?: boolean
@@ -431,6 +437,9 @@ export type Database = {
           price?: number
           restaurant_id?: string
           stock?: number
+          unit_id?: string | null
+          unit_value?: number
+          is_combo?: boolean
         }
         Relationships: [
           {
@@ -445,6 +454,13 @@ export type Database = {
             columns: ["menu_schedule_id"]
             isOneToOne: false
             referencedRelation: "menu_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
         ]
@@ -644,6 +660,78 @@ export type Database = {
             columns: ["area_id"]
             isOneToOne: false
             referencedRelation: "restaurant_areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      units_of_measure: {
+        Row: {
+          base_multiplier: number
+          created_at: string
+          id: string
+          name: string
+          restaurant_id: string
+          symbol: string
+          unit_type: string
+        }
+        Insert: {
+          base_multiplier?: number
+          created_at?: string
+          id?: string
+          name: string
+          restaurant_id: string
+          symbol: string
+          unit_type?: string
+        }
+        Update: {
+          base_multiplier?: number
+          created_at?: string
+          id?: string
+          name?: string
+          restaurant_id?: string
+          symbol?: string
+          unit_type?: string
+        }
+        Relationships: []
+      }
+      combo_items: {
+        Row: {
+          child_menu_item_id: string
+          created_at: string
+          id: string
+          parent_menu_item_id: string
+          quantity: number
+          restaurant_id: string
+        }
+        Insert: {
+          child_menu_item_id: string
+          created_at?: string
+          id?: string
+          parent_menu_item_id: string
+          quantity?: number
+          restaurant_id: string
+        }
+        Update: {
+          child_menu_item_id?: string
+          created_at?: string
+          id?: string
+          parent_menu_item_id?: string
+          quantity?: number
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combo_items_parent_menu_item_id_fkey"
+            columns: ["parent_menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combo_items_child_menu_item_id_fkey"
+            columns: ["child_menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
             referencedColumns: ["id"]
           },
         ]

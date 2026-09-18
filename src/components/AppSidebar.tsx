@@ -56,6 +56,8 @@ const menuItems: MenuItem[] = [
       { label: "Elementos de menú", path: "/menu-items" },
       { label: "Categorías", path: "/categorias" },
       { label: "Modificadores", path: "/modificadores" },
+      { label: "Unidades de medida", path: "/unidades" },
+      { label: "Combos y Paquetes", path: "/combos" },
     ],
   },
   {
