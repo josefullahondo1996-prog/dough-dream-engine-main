@@ -142,3 +142,74 @@ export function useCategoriesReport(range: DateRange) {
     enabled: !!restaurant?.id,
   });
 }
+
+export function useExpensesByCategoryReport(range: DateRange) {
+  const { restaurant } = useAuth();
+  return useQuery({
+    queryKey: ["report-expenses-by-category", restaurant?.id, range],
+    queryFn: async () => {
+      if (!restaurant?.id) return [];
+      const { from, to } = getDateRange(range);
+      const { data, error } = await supabase
+        .from("expenses")
+        .select("amount, description, category_id, expense_categories(id, name)")
+        .eq("restaurant_id", restaurant.id)
+        .gte("expense_date", from.slice(0, 10))
+        .lte("expense_date", to.slice(0, 10));
+      if (error) throw error;
+
+      const grouped = new Map<string, { name: string; amount: number; count: number }>();
+      for (const row of data ?? []) {
+        const catName = (row.expense_categories as any)?.name ?? "Sin categoría";
+        const prev = grouped.get(catName) ?? { name: catName, amount: 0, count: 0 };
+        grouped.set(catName, {
+          name: catName,
+          amount: prev.amount + Number(row.amount || 0),
+          count: prev.count + 1,
+        });
+      }
+
+      return Array.from(grouped.values()).sort((a, b) => b.amount - a.amount);
+    },
+    enabled: !!restaurant?.id,
+  });
+}
+
+export function useSalesBreakdownReport(range: DateRange) {
+  const { restaurant } = useAuth();
+  return useQuery({
+    queryKey: ["report-sales-breakdown", restaurant?.id, range],
+    queryFn: async () => {
+      if (!restaurant?.id) return { subtotal: 0, discount: 0, iva: 0, total: 0, count: 0 };
+      const { from, to } = getDateRange(range);
+      const { data, error } = await supabase
+        .from("invoices")
+        .select("subtotal, discount, iva, total")
+        .eq("restaurant_id", restaurant.id)
+        .gte("created_at", from)
+        .lte("created_at", to);
+      if (error) throw error;
+
+      let subtotal = 0;
+      let discount = 0;
+      let iva = 0;
+      let total = 0;
+      for (const row of data ?? []) {
+        subtotal += Number(row.subtotal || 0);
+        discount += Number(row.discount || 0);
+        iva += Number(row.iva || 0);
+        total += Number(row.total || 0);
+      }
+
+      return {
+        subtotal,
+        discount,
+        iva,
+        total,
+        count: data?.length || 0,
+      };
+    },
+    enabled: !!restaurant?.id,
+  });
+}
+

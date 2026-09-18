@@ -104,6 +104,7 @@ const menuItems: MenuItem[] = [
     label: "Informes",
     icon: BarChart3,
     subItems: [
+      { label: "Ganancias y Pérdidas", path: "/informe-perdidas-ganancias" },
       { label: "Ventas", path: "/informe-ventas" },
       { label: "Artículos", path: "/informe-articulos" },
       { label: "Categorías", path: "/informe-categorias" },
