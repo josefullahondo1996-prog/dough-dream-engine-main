@@ -25,6 +25,8 @@ export default function Auth() {
   const location = useLocation();
   const [isRegistering, setIsRegistering] = useState(false);
   const [fullName, setFullName] = useState("");
+  const [restaurantName, setRestaurantName] = useState("");
+  const [businessType, setBusinessType] = useState("Pizzería");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -39,8 +41,10 @@ export default function Auth() {
     setMessage("");
     setIsSubmitting(true);
 
+    const finalRestName = restaurantName.trim() || `${businessType} de ${fullName.trim().split(" ")[0] || "Mi Negocio"}`;
+
     const result = isRegistering
-      ? await signUp(email, password, fullName)
+      ? await signUp(email, password, fullName, finalRestName)
       : await signIn(email, password);
 
     setIsSubmitting(false);
@@ -170,19 +174,58 @@ export default function Auth() {
           {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegistering && (
-              <div className="space-y-1.5">
-                <label htmlFor="full-name" className="text-sm font-medium text-foreground">
-                  Nombre completo
-                </label>
-                <input
-                  id="full-name"
-                  required
-                  placeholder="Juan Pérez"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
-                />
-              </div>
+              <>
+                <div className="space-y-1.5">
+                  <label htmlFor="full-name" className="text-sm font-medium text-foreground">
+                    Tu nombre y apellido *
+                  </label>
+                  <input
+                    id="full-name"
+                    required
+                    placeholder="Juan Pérez"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="restaurant-name" className="text-sm font-medium text-foreground flex items-center justify-between">
+                    <span>Nombre de tu Empresa / Restaurante *</span>
+                    <span className="text-xs text-orange-500 font-normal">SaaS Privado</span>
+                  </label>
+                  <input
+                    id="restaurant-name"
+                    required
+                    placeholder="Ej: Pizzería Roma, Smash Burger..."
+                    value={restaurantName}
+                    onChange={(e) => setRestaurantName(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground block">
+                    Rubro gastronómico principal
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs">
+                    {["🍕 Pizzería", "🍔 Burger", "☕ Cafetería", "🍹 Bar", "🍣 Sushi", "🍽️ Restó"].map((cat) => (
+                      <button
+                        type="button"
+                        key={cat}
+                        onClick={() => setBusinessType(cat.split(" ")[1])}
+                        className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+                          businessType === cat.split(" ")[1]
+                            ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400 font-semibold"
+                            : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
 
             <div className="space-y-1.5">

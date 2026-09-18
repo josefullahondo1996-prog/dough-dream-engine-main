@@ -12,11 +12,15 @@ export interface AuthContextValue {
   profile: Profile | null;
   restaurant: Restaurant | null;
   membership: RestaurantMembership | null;
+  restaurants: Restaurant[];
+  userMemberships: RestaurantMembership[];
   workspaceError: string | null;
   refreshWorkspace: () => Promise<void>;
+  switchRestaurant: (restaurantId: string) => Promise<void>;
+  createRestaurant: (name: string, slug?: string) => Promise<Restaurant>;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null; needsEmailConfirmation: boolean }>;
+  signUp: (email: string, password: string, fullName: string, restaurantName?: string) => Promise<{ error: Error | null; needsEmailConfirmation: boolean }>;
   signOut: () => Promise<{ error: Error | null }>;
 }
 

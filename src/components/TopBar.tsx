@@ -5,6 +5,7 @@ import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useRealtimeNotifications } from "@/hooks/useRealtimeNotifications";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RestaurantSwitcher } from "@/components/RestaurantSwitcher";
 
 interface TopBarProps {
   collapsed: boolean;
@@ -102,6 +103,9 @@ export default function TopBar({ collapsed }: TopBarProps) {
         <button className="p-2.5 rounded-lg hover:bg-secondary transition-colors hidden md:flex">
           <Maximize2 className="w-5 h-5 text-muted-foreground" />
         </button>
+
+        {/* Restaurant Switcher */}
+        <RestaurantSwitcher variant="topbar" />
 
         {/* Divider */}
         <div className="w-px h-8 bg-border mx-1" />

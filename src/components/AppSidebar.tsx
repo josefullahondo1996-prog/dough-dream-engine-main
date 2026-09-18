@@ -32,6 +32,7 @@ import {
   Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RestaurantSwitcher } from "@/components/RestaurantSwitcher";
 
 interface SubItem {
   label: string;
@@ -153,14 +154,10 @@ export default function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
         )}
       </div>
 
-      {/* Branch selector */}
+      {/* Restaurant / Branch selector */}
       {!collapsed && (
-        <div className="px-3 py-3 border-b border-sidebar-border shrink-0">
-          <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-sidebar-border hover:bg-sidebar-accent transition-colors text-sm">
-            <MapPin className="w-4 h-4 text-primary shrink-0" />
-            <span className="truncate text-sidebar-accent-foreground">Sucursal Principal</span>
-            <Star className="w-3 h-3 text-primary ml-auto shrink-0" />
-          </button>
+        <div className="px-3 py-2.5 border-b border-sidebar-border shrink-0">
+          <RestaurantSwitcher variant="sidebar" />
         </div>
       )}
 
