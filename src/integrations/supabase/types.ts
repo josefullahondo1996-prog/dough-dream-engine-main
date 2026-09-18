@@ -403,6 +403,7 @@ export type Database = {
           id: string
           name: string
           price: number
+          cost_price: number | null
           restaurant_id: string
           stock: number
           unit_id: string | null
@@ -419,6 +420,7 @@ export type Database = {
           id?: string
           name: string
           price?: number
+          cost_price?: number | null
           restaurant_id: string
           stock?: number
           unit_id?: string | null
@@ -435,6 +437,7 @@ export type Database = {
           id?: string
           name?: string
           price?: number
+          cost_price?: number | null
           restaurant_id?: string
           stock?: number
           unit_id?: string | null

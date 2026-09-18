@@ -77,6 +77,7 @@ export default function MenuItems() {
   const [form, setForm] = useState({
     name: "",
     price: "",
+    costPrice: "",
     stock: "10",
     description: "",
     emoji: "🍽️",
@@ -146,7 +147,7 @@ export default function MenuItems() {
   };
 
   const resetForm = () => {
-    setForm({ name: "", price: "", stock: "10", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", unitId: "", unitValue: "1", available: true });
+    setForm({ name: "", price: "", costPrice: "", stock: "10", description: "", emoji: "🍽️", categoryId: "", scheduleId: "", unitId: "", unitValue: "1", available: true });
     setFormError("");
   };
 
@@ -155,6 +156,7 @@ export default function MenuItems() {
     if (!restaurant) return;
 
     const price = Number(form.price);
+    const costPrice = form.costPrice !== "" ? Number(form.costPrice) : 0;
     const stock = Number(form.stock);
     if (!form.name.trim() || !Number.isInteger(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
       setFormError("Indica un nombre, precio y cantidad en stock válidos (números enteros >= 0).");
@@ -167,6 +169,7 @@ export default function MenuItems() {
       restaurant_id: restaurant.id,
       name: form.name.trim(),
       price,
+      cost_price: costPrice,
       stock,
       description: form.description.trim() || null,
       emoji: form.emoji.trim() || fallbackEmoji,
@@ -194,6 +197,7 @@ export default function MenuItems() {
     setForm({
       name: item.name,
       price: String(item.price),
+      costPrice: item.cost_price != null ? String(item.cost_price) : "",
       stock: String(item.stock ?? 10),
       description: item.description || "",
       emoji: item.emoji || fallbackEmoji,
@@ -211,6 +215,7 @@ export default function MenuItems() {
     if (!restaurant || !editingItem) return;
 
     const price = Number(form.price);
+    const costPrice = form.costPrice !== "" ? Number(form.costPrice) : 0;
     const stock = Number(form.stock);
     if (!form.name.trim() || !Number.isInteger(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
       setFormError("Indica un nombre, precio y cantidad en stock válidos (números enteros >= 0).");
@@ -224,6 +229,7 @@ export default function MenuItems() {
       .update({
         name: form.name.trim(),
         price,
+        cost_price: costPrice,
         stock,
         description: form.description.trim() || null,
         emoji: form.emoji.trim() || fallbackEmoji,
@@ -275,6 +281,12 @@ export default function MenuItems() {
     };
     reader.readAsDataURL(file);
   };
+
+  // Live calculation helper for modals
+  const previewPrice = Number(form.price) || 0;
+  const previewCost = form.costPrice !== "" ? Number(form.costPrice) || 0 : 0;
+  const previewProfit = previewPrice - previewCost;
+  const previewMargin = previewPrice > 0 ? ((previewProfit / previewPrice) * 100).toFixed(1) : "0.0";
 
   return (
     <div className="space-y-6">
@@ -335,7 +347,9 @@ export default function MenuItems() {
               <tr className="bg-secondary/50">
                 <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Producto</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Categoría</th>
-                <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Precio</th>
+                <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Precio Venta</th>
+                <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Costo Insumo</th>
+                <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Ganancia Unit.</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Stock (Cant.)</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Estado</th>
                 <th className="text-right text-xs font-medium text-muted-foreground px-5 py-3">Acciones</th>
@@ -343,11 +357,14 @@ export default function MenuItems() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={6} className="py-12 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
+                <tr><td colSpan={8} className="py-12 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
               ) : filtered.map((item) => {
                 const dishImg = getDishImage(item);
                 const cleanName = getCleanName(item.name);
                 const itemStock = item.stock ?? 10;
+                const costVal = item.cost_price != null ? item.cost_price : 0;
+                const profitVal = item.price - costVal;
+                const marginPct = item.price > 0 ? ((profitVal / item.price) * 100).toFixed(0) : "0";
 
                 return (
                   <tr key={item.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
@@ -389,8 +406,29 @@ export default function MenuItems() {
                       {categoryMap[item.category_id ?? ""] || "Sin categoría"}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-sm font-medium text-card-foreground">
-                    Gs. {item.price.toLocaleString()}
+                  <td className="px-5 py-3.5 text-sm font-bold text-foreground">
+                    Gs. {item.price.toLocaleString("es-PY")}
+                  </td>
+                  <td className="px-5 py-3.5 text-sm text-muted-foreground font-medium">
+                    {item.cost_price != null && item.cost_price > 0
+                      ? `Gs. ${item.cost_price.toLocaleString("es-PY")}`
+                      : <span className="text-xs text-muted-foreground/60 italic">Gs. 0</span>
+                    }
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg border",
+                        profitVal > 0
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : profitVal < 0
+                          ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                          : "bg-secondary text-muted-foreground border-border"
+                      )}
+                    >
+                      <span>Gs. {profitVal.toLocaleString("es-PY")}</span>
+                      <span className="text-[10px] opacity-80">({marginPct}%)</span>
+                    </span>
                   </td>
                   <td className="px-5 py-3.5">
                     <span
@@ -421,10 +459,10 @@ export default function MenuItems() {
                       <button onClick={() => void toggleAvailability(item)} title={item.available ? "Marcar no disponible" : "Marcar disponible"} className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
                         {item.available ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
-                      <button onClick={() => openEdit(item)} title="Editar producto" className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
+                      <button onClick={() => openEdit(item)} title="Editar" className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button onClick={() => void deleteItem(item)} title="Eliminar producto" className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
+                      <button onClick={() => void deleteItem(item)} title="Eliminar" className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -442,21 +480,56 @@ export default function MenuItems() {
         )}
       </div>
 
+      {/* CREATE MODAL */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="create-product-title">
-          <form onSubmit={handleCreate} className="w-full max-w-lg space-y-4 rounded-2xl bg-card p-6 shadow-elevated my-8 max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleCreate} className="w-full max-w-lg space-y-4 rounded-2xl bg-card p-6 shadow-elevated my-8 max-h-[90vh] overflow-y-auto border border-border">
             <div>
               <h2 id="create-product-title" className="text-xl font-bold text-card-foreground">Agregar producto</h2>
-              <p className="mt-1 text-sm text-muted-foreground">El producto se guardará en {restaurant?.name}.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Registra un plato, bebida (gaseosa, jugo), postre o combo en {restaurant?.name}.</p>
             </div>
             
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <label className="text-sm font-medium text-card-foreground">Nombre *<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
-              <label className="text-sm font-medium text-card-foreground">Precio (Gs.) *<input required min="0" step="1" type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
-              <label className="text-sm font-medium text-card-foreground">Stock (Cant.) *<input required min="0" step="1" type="number" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} placeholder="10" className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-card-foreground sm:col-span-2">
+                Nombre del Producto *
+                <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Ej: Pizza Muzzarella, Hamburguesa Doble, Coca Cola 1.5L" className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
+              </label>
+
+              <label className="text-sm font-medium text-card-foreground">
+                Precio de Venta (Gs.) *
+                <input required min="0" step="1" type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} placeholder="50000" className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
+              </label>
+
+              <label className="text-sm font-medium text-card-foreground">
+                Costo Insumos / Compra (Gs.)
+                <input min="0" step="1" type="number" value={form.costPrice} onChange={(event) => setForm({ ...form, costPrice: event.target.value })} placeholder="Ej: 18000 o 5500" className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
+              </label>
+            </div>
+
+            {/* Live Profit Margin Box */}
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                  Ganancia estimada por unidad:
+                </p>
+                <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">
+                  Gs. {previewProfit.toLocaleString("es-PY")}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Margen:</p>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-extrabold bg-emerald-600 text-white shadow-xs">
+                  {previewMargin}%
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="text-sm font-medium text-card-foreground">
+                Stock Inicial (Cant.) *
+                <input required min="0" step="1" type="number" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} placeholder="10" className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
+              </label>
+
               <label className="block text-sm font-medium text-card-foreground">
                 Categoría
                 <select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring">
@@ -464,15 +537,15 @@ export default function MenuItems() {
                   {Object.entries(categoriesById).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
                 </select>
               </label>
-
-              <label className="block text-sm font-medium text-card-foreground">
-                Turno del Menú
-                <select value={form.scheduleId} onChange={(event) => setForm({ ...form, scheduleId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">Sin turno asignado</option>
-                  {schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </label>
             </div>
+
+            <label className="block text-sm font-medium text-card-foreground">
+              Turno del Menú
+              <select value={form.scheduleId} onChange={(event) => setForm({ ...form, scheduleId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring">
+                <option value="">Sin turno asignado (Disponible siempre)</option>
+                {schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </label>
 
             {/* Unidad de Medida y Presentación */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/30 p-3 rounded-xl border border-border">
@@ -576,18 +649,53 @@ export default function MenuItems() {
         </div>
       )}
 
+      {/* EDIT MODAL */}
       {editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="edit-product-title">
-          <form onSubmit={handleEdit} className="w-full max-w-lg space-y-4 rounded-2xl bg-card p-6 shadow-elevated my-8 max-h-[90vh] overflow-y-auto">
-            <div><h2 id="edit-product-title" className="text-xl font-bold text-card-foreground">Editar producto</h2><p className="mt-1 text-sm text-muted-foreground">Actualiza la información del producto.</p></div>
+          <form onSubmit={handleEdit} className="w-full max-w-lg space-y-4 rounded-2xl bg-card p-6 shadow-elevated my-8 max-h-[90vh] overflow-y-auto border border-border">
+            <div><h2 id="edit-product-title" className="text-xl font-bold text-card-foreground">Editar producto</h2><p className="mt-1 text-sm text-muted-foreground">Actualiza los precios, costo y datos de {editingItem.name}.</p></div>
             
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <label className="text-sm font-medium text-card-foreground">Nombre *<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
-              <label className="text-sm font-medium text-card-foreground">Precio (Gs.) *<input required min="0" step="1" type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
-              <label className="text-sm font-medium text-card-foreground">Stock (Cant.) *<input required min="0" step="1" type="number" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" /></label>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-card-foreground sm:col-span-2">
+                Nombre del Producto *
+                <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
+              </label>
+
+              <label className="text-sm font-medium text-card-foreground">
+                Precio de Venta (Gs.) *
+                <input required min="0" step="1" type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
+              </label>
+
+              <label className="text-sm font-medium text-card-foreground">
+                Costo Insumos / Compra (Gs.)
+                <input min="0" step="1" type="number" value={form.costPrice} onChange={(event) => setForm({ ...form, costPrice: event.target.value })} placeholder="Ej: 18000 o 5500" className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
+              </label>
+            </div>
+
+            {/* Live Profit Margin Box */}
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                  Ganancia estimada por unidad:
+                </p>
+                <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">
+                  Gs. {previewProfit.toLocaleString("es-PY")}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Margen:</p>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-extrabold bg-emerald-600 text-white shadow-xs">
+                  {previewMargin}%
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="text-sm font-medium text-card-foreground">
+                Stock (Cant.) *
+                <input required min="0" step="1" type="number" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring" />
+              </label>
+
               <label className="block text-sm font-medium text-card-foreground">
                 Categoría
                 <select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring">
@@ -595,15 +703,15 @@ export default function MenuItems() {
                   {Object.entries(categoriesById).map(([id, categoryName]) => <option key={id} value={id}>{categoryName}</option>)}
                 </select>
               </label>
-
-              <label className="block text-sm font-medium text-card-foreground">
-                Turno del Menú
-                <select value={form.scheduleId} onChange={(event) => setForm({ ...form, scheduleId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">Sin turno asignado</option>
-                  {schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </label>
             </div>
+
+            <label className="block text-sm font-medium text-card-foreground">
+              Turno del Menú
+              <select value={form.scheduleId} onChange={(event) => setForm({ ...form, scheduleId: event.target.value })} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 font-normal outline-none focus:ring-2 focus:ring-ring">
+                <option value="">Sin turno asignado</option>
+                {schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </label>
 
             {/* Unidad de Medida y Presentación */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/30 p-3 rounded-xl border border-border">
@@ -709,3 +817,4 @@ export default function MenuItems() {
     </div>
   );
 }
+

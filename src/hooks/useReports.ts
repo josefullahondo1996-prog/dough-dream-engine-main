@@ -87,26 +87,41 @@ export function useTopItemsReport(range: DateRange) {
       const { from, to } = getDateRange(range);
       const { data, error } = await supabase
         .from("order_items")
-        .select("quantity, price_at_order, menu_items(name), orders!inner(created_at, restaurant_id, status)")
+        .select("quantity, price_at_order, menu_items(name, cost_price), orders!inner(created_at, restaurant_id, status)")
         .eq("orders.restaurant_id", restaurant.id)
         .neq("orders.status", "cancelado")
         .gte("orders.created_at", from)
         .lte("orders.created_at", to);
       if (error) throw error;
 
-      const grouped = new Map<string, { name: string; quantity: number; revenue: number }>();
+      const grouped = new Map<string, { name: string; quantity: number; revenue: number; cost: number; profit: number; margin: number }>();
       for (const row of data ?? []) {
-        const name = (row.menu_items as any)?.name ?? "Desconocido";
-        const prev = grouped.get(name) ?? { name, quantity: 0, revenue: 0 };
+        const menuItem = row.menu_items as any;
+        const name = menuItem?.name ?? "Desconocido";
+        const unitCost = Number(menuItem?.cost_price || 0);
+        const prev = grouped.get(name) ?? { name, quantity: 0, revenue: 0, cost: 0, profit: 0, margin: 0 };
+        const addedQty = Number(row.quantity || 0);
+        const addedRevenue = addedQty * Number(row.price_at_order || 0);
+        const addedCost = addedQty * unitCost;
+
+        const newQty = prev.quantity + addedQty;
+        const newRevenue = prev.revenue + addedRevenue;
+        const newCost = prev.cost + addedCost;
+        const newProfit = newRevenue - newCost;
+        const newMargin = newRevenue > 0 ? (newProfit / newRevenue) * 100 : 0;
+
         grouped.set(name, {
           name,
-          quantity: prev.quantity + Number(row.quantity),
-          revenue: prev.revenue + Number(row.quantity) * Number(row.price_at_order),
+          quantity: newQty,
+          revenue: newRevenue,
+          cost: newCost,
+          profit: newProfit,
+          margin: newMargin,
         });
       }
       return Array.from(grouped.values())
         .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, 10);
+        .slice(0, 15);
     },
     enabled: !!restaurant?.id,
   });

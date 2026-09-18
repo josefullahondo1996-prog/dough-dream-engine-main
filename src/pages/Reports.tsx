@@ -598,34 +598,67 @@ export default function Reports() {
         </TabsContent>
 
         {/* TAB 4: ARTÍCULOS */}
-        <TabsContent value="articulos" className="mt-4">
-          <Card>
+        <TabsContent value="articulos" className="mt-4 space-y-4">
+          <Card className="border border-border/70 shadow-sm">
             <CardHeader>
-              <CardTitle>Top 10 artículos más vendidos</CardTitle>
-              <CardDescription>Por cantidad de unidades vendidas</CardDescription>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span>Rentabilidad por Artículo Vendido (Pizzas, Hamburguesas, Bebidas, etc.)</span>
+                <span className="text-xs font-normal text-muted-foreground">{topItems.length} productos analizados</span>
+              </CardTitle>
+              <CardDescription>
+                Desglose de unidades vendidas, ingresos facturados, costo de insumos y ganancia neta generada por cada producto
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {topItems.length === 0 ? (
                 <p className="text-center text-muted-foreground py-12">No hay datos de artículos en este rango.</p>
               ) : (
-                <div className="space-y-3">
-                  {topItems.map((item, index) => (
-                    <div key={item.name} className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-muted-foreground w-5 shrink-0">#{index + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-sm font-medium truncate">{item.name}</p>
-                          <p className="text-xs text-muted-foreground shrink-0 ml-2">{item.quantity} uds · {fmt(item.revenue)}</p>
-                        </div>
-                        <div className="h-2 rounded-full bg-secondary overflow-hidden">
-                          <div
-                            className="h-full bg-primary rounded-full transition-all duration-500"
-                            style={{ width: `${(item.quantity / (topItems[0]?.quantity || 1)) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border/80 bg-muted/40 text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                          <th className="text-left py-2.5 px-3">#</th>
+                          <th className="text-left py-2.5 px-3">Artículo / Producto</th>
+                          <th className="text-center py-2.5 px-3">Vendidos</th>
+                          <th className="text-right py-2.5 px-3">Ingreso Total</th>
+                          <th className="text-right py-2.5 px-3">Costo Insumos</th>
+                          <th className="text-right py-2.5 px-3">Ganancia Neta</th>
+                          <th className="text-right py-2.5 px-3">Margen %</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/40">
+                        {topItems.map((item, index) => (
+                          <tr key={item.name} className="hover:bg-muted/30 transition-colors">
+                            <td className="py-3 px-3 text-xs font-bold text-muted-foreground">{index + 1}</td>
+                            <td className="py-3 px-3 font-semibold text-foreground">
+                              {item.name}
+                            </td>
+                            <td className="py-3 px-3 text-center text-xs font-medium">
+                              <span className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-bold">
+                                {item.quantity} un.
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-right font-medium">{fmt(item.revenue)}</td>
+                            <td className="py-3 px-3 text-right text-muted-foreground text-xs">
+                              {item.cost > 0 ? fmt(item.cost) : <span className="italic text-muted-foreground/50">Gs. 0</span>}
+                            </td>
+                            <td className="py-3 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                              {fmt(item.profit)}
+                            </td>
+                            <td className="py-3 px-3 text-right">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-extrabold ${
+                                item.margin >= 40 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                                item.margin > 0 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                              }`}>
+                                {item.margin.toFixed(0)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </CardContent>
