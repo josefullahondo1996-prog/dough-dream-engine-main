@@ -1,10 +1,58 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Package, Plus, Edit, Trash2, Search, Loader2, Sparkles, AlertCircle, ShoppingBag, Check } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, type ChangeEvent } from "react";
+import {
+  Package, Plus, Edit, Trash2, Search, Loader2, Sparkles,
+  AlertCircle, ShoppingBag, Check, Upload, Image as ImageIcon
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
 
 type MenuItem = Tables<"menu_items">;
+
+const isImageUrl = (val?: string | null) => {
+  if (!val) return false;
+  const clean = val.trim();
+  return (
+    clean.startsWith("http://") ||
+    clean.startsWith("https://") ||
+    clean.startsWith("data:image/") ||
+    clean.startsWith("/") ||
+    clean.includes("https://images.unsplash.com")
+  );
+};
+
+const extractImageUrl = (val?: string | null) => {
+  if (!val) return null;
+  const match = val.match(/(https?:\/\/[^\s]+|data:image\/[^\s]+)/);
+  return match ? match[0] : null;
+};
+
+const getDishImage = (item?: MenuItem | { emoji?: string | null; description?: string | null; name?: string | null } | null) => {
+  if (!item) return null;
+  if (isImageUrl(item.emoji)) return extractImageUrl(item.emoji) || item.emoji;
+  if (isImageUrl(item.description)) return extractImageUrl(item.description) || item.description;
+  if (isImageUrl(item.name)) return extractImageUrl(item.name) || item.name;
+  return null;
+};
+
+const getCleanName = (name?: string | null) => {
+  if (!name) return "Sin nombre";
+  const urlMatch = name.match(/(https?:\/\/[^\s]+|data:image\/[^\s]+)/);
+  if (urlMatch) {
+    const clean = name.replace(urlMatch[0], "").trim();
+    return clean || "Producto con imagen";
+  }
+  return name;
+};
+
+const PRESET_COMBO_IMAGES = [
+  { name: "Combo Burger", url: "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=500&auto=format&fit=crop&q=80" },
+  { name: "Combo Pizza", url: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&auto=format&fit=crop&q=80" },
+  { name: "Combo Lomito", url: "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500&auto=format&fit=crop&q=80" },
+  { name: "Combo Amigos", url: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=80" },
+  { name: "Combo Bebidas", url: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&auto=format&fit=crop&q=80" },
+];
 
 interface ComboItemWithDetails {
   id: string;
@@ -13,6 +61,7 @@ interface ComboItemWithDetails {
   child_name?: string;
   child_price?: number;
   child_emoji?: string;
+  child_item?: MenuItem;
 }
 
 interface ComboFull {
@@ -27,6 +76,7 @@ export default function CombosPage() {
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
   const [error, setError] = useState("");
   const [dbTableMissing, setDbTableMissing] = useState(false);
 
@@ -39,8 +89,9 @@ export default function CombosPage() {
   const [form, setForm] = useState({
     name: "",
     price: "",
+    costPrice: "",
     description: "",
-    emoji: "📦",
+    emoji: "🍔🍟🥤",
     category_id: "",
     stock: "50",
   });
@@ -54,7 +105,6 @@ export default function CombosPage() {
     setDbTableMissing(false);
 
     try {
-      // 1. Fetch categories & all menu items
       const [catRes, itemsRes] = await Promise.all([
         supabase.from("menu_categories").select("id, name").eq("restaurant_id", restaurant.id).order("name"),
         supabase.from("menu_items").select("*").eq("restaurant_id", restaurant.id).order("name"),
@@ -65,13 +115,10 @@ export default function CombosPage() {
 
       const allItems = itemsRes.data ?? [];
       setCategories(catRes.data ?? []);
-      // Products available to put inside combos (non-combo products)
       setAvailableProducts(allItems.filter((i) => !i.is_combo));
 
-      // Filter combo items
       const comboMenuItems = allItems.filter((i) => i.is_combo);
 
-      // Fetch combo_items table details
       const { data: comboComponents, error: comboCompErr } = await supabase
         .from("combo_items")
         .select("*")
@@ -88,14 +135,18 @@ export default function CombosPage() {
       const fullCombos: ComboFull[] = comboMenuItems.map((combo) => {
         const comps = (comboComponents ?? [])
           .filter((c) => c.parent_menu_item_id === combo.id)
-          .map((c) => ({
-            id: c.id,
-            child_menu_item_id: c.child_menu_item_id,
-            quantity: c.quantity,
-            child_name: productsById[c.child_menu_item_id]?.name || "Producto desconocido",
-            child_price: productsById[c.child_menu_item_id]?.price || 0,
-            child_emoji: productsById[c.child_menu_item_id]?.emoji || "🍽️",
-          }));
+          .map((c) => {
+            const child = productsById[c.child_menu_item_id];
+            return {
+              id: c.id,
+              child_menu_item_id: c.child_menu_item_id,
+              quantity: c.quantity,
+              child_name: getCleanName(child?.name) || "Producto",
+              child_price: child?.price || 0,
+              child_emoji: child?.emoji || "🍽️",
+              child_item: child,
+            };
+          });
 
         return {
           item: combo,
@@ -105,7 +156,7 @@ export default function CombosPage() {
 
       setCombos(fullCombos);
     } catch (e: any) {
-      setError(e.message || "Error al cargar combos.");
+      setError(e.message || "Error al cargar los combos.");
     } finally {
       setIsLoading(false);
     }
@@ -120,12 +171,14 @@ export default function CombosPage() {
     setForm({
       name: "",
       price: "",
-      description: "Includes a special combination of items",
-      emoji: "🎁",
-      category_id: categories[0]?.id || "",
+      costPrice: "",
+      description: "",
+      emoji: "🍔🍟🥤",
+      category_id: "",
       stock: "50",
     });
     setSelectedComponents([]);
+    setProductSearch("");
     setFormError("");
     setIsModalOpen(true);
   };
@@ -135,14 +188,16 @@ export default function CombosPage() {
     setForm({
       name: combo.item.name,
       price: combo.item.price.toString(),
+      costPrice: combo.item.cost_price != null ? combo.item.cost_price.toString() : "",
       description: combo.item.description || "",
-      emoji: combo.item.emoji || "🎁",
+      emoji: combo.item.emoji || "🍔🍟🥤",
       category_id: combo.item.category_id || "",
-      stock: combo.item.stock.toString(),
+      stock: (combo.item.stock ?? 50).toString(),
     });
     setSelectedComponents(
       combo.components.map((c) => ({ productId: c.child_menu_item_id, quantity: c.quantity }))
     );
+    setProductSearch("");
     setFormError("");
     setIsModalOpen(true);
   };
@@ -181,6 +236,27 @@ export default function CombosPage() {
     }, 0);
   }, [selectedComponents, availableProducts]);
 
+  // Calculate estimated total cost of components
+  const componentsCostTotal = useMemo(() => {
+    const productsById = Object.fromEntries(availableProducts.map((p) => [p.id, p]));
+    return selectedComponents.reduce((sum, item) => {
+      const cost = Number(productsById[item.productId]?.cost_price || 0);
+      return sum + cost * item.quantity;
+    }, 0);
+  }, [selectedComponents, availableProducts]);
+
+  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setForm((prev) => ({ ...prev, emoji: e.target!.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveCombo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!restaurant) return;
@@ -201,6 +277,8 @@ export default function CombosPage() {
       return;
     }
 
+    const finalCost = form.costPrice !== "" ? Number(form.costPrice) : componentsCostTotal;
+
     setIsSaving(true);
     setFormError("");
 
@@ -208,14 +286,14 @@ export default function CombosPage() {
       let comboId = editingCombo?.item.id;
 
       if (editingCombo) {
-        // Update menu_items row
         const { error: updateErr } = await supabase
           .from("menu_items")
           .update({
             name: form.name.trim(),
             price,
+            cost_price: finalCost,
             description: form.description.trim() || null,
-            emoji: form.emoji.trim() || "🎁",
+            emoji: form.emoji.trim() || "🍔🍟🥤",
             category_id: form.category_id || null,
             stock: Number(form.stock) || 50,
             is_combo: true,
@@ -225,22 +303,21 @@ export default function CombosPage() {
 
         if (updateErr) throw updateErr;
 
-        // Delete previous combo items
         await supabase
           .from("combo_items")
           .delete()
           .eq("parent_menu_item_id", comboId)
           .eq("restaurant_id", restaurant.id);
       } else {
-        // Insert new menu_items row
         const { data: newCombo, error: insertErr } = await supabase
           .from("menu_items")
           .insert({
             restaurant_id: restaurant.id,
             name: form.name.trim(),
             price,
+            cost_price: finalCost,
             description: form.description.trim() || null,
-            emoji: form.emoji.trim() || "🎁",
+            emoji: form.emoji.trim() || "🍔🍟🥤",
             category_id: form.category_id || null,
             stock: Number(form.stock) || 50,
             is_combo: true,
@@ -252,7 +329,6 @@ export default function CombosPage() {
         comboId = newCombo.id;
       }
 
-      // Insert combo components into combo_items table
       const comboItemsInserts = selectedComponents.map((c) => ({
         restaurant_id: restaurant.id,
         parent_menu_item_id: comboId!,
@@ -280,12 +356,8 @@ export default function CombosPage() {
         .delete()
         .eq("id", comboId)
         .eq("restaurant_id", restaurant.id);
-
-      if (delErr) {
-        setError(delErr.message);
-      } else {
-        setCombos((prev) => prev.filter((c) => c.item.id !== comboId));
-      }
+      if (delErr) throw delErr;
+      await loadCombosData();
     } catch (e: any) {
       setError(e.message);
     }
@@ -295,8 +367,14 @@ export default function CombosPage() {
     c.item.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const filteredAvailableProducts = useMemo(() => {
+    if (!productSearch.trim()) return availableProducts;
+    const q = productSearch.toLowerCase();
+    return availableProducts.filter((p) => p.name.toLowerCase().includes(q));
+  }, [availableProducts, productSearch]);
+
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto pb-12">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -305,12 +383,12 @@ export default function CombosPage() {
             Combos y Paquetes
           </h1>
           <p className="text-muted-foreground text-sm">
-            Agrupa varios productos en combos promocionales (ej: Combo 2 Litros Gaseosa + Pizza)
+            Agrupa varios productos en combos promocionales (ej: Hamburguesa + Papas + Gaseosa)
           </p>
         </div>
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg font-medium transition text-sm shadow"
+          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-medium transition text-sm shadow-md"
         >
           <Plus className="w-4 h-4" />
           Nuevo Combo
@@ -355,12 +433,12 @@ export default function CombosPage() {
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">No hay combos registrados</h3>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Crea tu primer combo combinando productos individuales con un precio promocional.
+              Crea tu primer combo combinando hamburguesas, pizzas, papas y gaseosas con un precio promocional.
             </p>
           </div>
           <button
             onClick={openCreateModal}
-            className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition"
+            className="px-5 py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm font-medium transition shadow-md"
           >
             Crear Primer Combo
           </button>
@@ -373,6 +451,8 @@ export default function CombosPage() {
               0
             );
             const savings = originalVal - combo.item.price;
+            const comboImg = getDishImage(combo.item);
+            const cleanComboName = getCleanName(combo.item.name);
 
             return (
               <div
@@ -383,12 +463,25 @@ export default function CombosPage() {
                   {/* Top */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl p-2 bg-primary/10 rounded-xl">
-                        {combo.item.emoji || "🎁"}
-                      </span>
+                      {comboImg ? (
+                        <img
+                          src={comboImg}
+                          alt={cleanComboName}
+                          className="h-14 w-14 rounded-xl object-cover border border-border shadow-xs shrink-0"
+                        />
+                      ) : (
+                        <span className="text-2xl h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                          {combo.item.emoji || "🎁"}
+                        </span>
+                      )}
                       <div>
-                        <h3 className="font-bold text-foreground text-lg">{combo.item.name}</h3>
-                        <p className="text-xs text-muted-foreground line-clamp-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="font-bold text-foreground text-base">{cleanComboName}</h3>
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-400">
+                            Combo
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                           {combo.item.description || "Combo promocional"}
                         </p>
                       </div>
@@ -400,21 +493,32 @@ export default function CombosPage() {
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Incluye {combo.components.length} productos:
                     </span>
-                    <div className="space-y-1.5">
-                      {combo.components.map((comp) => (
-                        <div
-                          key={comp.id}
-                          className="flex items-center justify-between text-xs text-foreground bg-background/60 px-2.5 py-1.5 rounded-lg border border-border/40"
-                        >
-                          <span className="flex items-center gap-1.5 font-medium">
-                            <span>{comp.child_emoji}</span>
-                            <span>{comp.child_name}</span>
-                          </span>
-                          <span className="font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
-                            x{comp.quantity}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="space-y-2">
+                      {combo.components.map((comp) => {
+                        const childImg = getDishImage(comp.child_item);
+                        return (
+                          <div
+                            key={comp.id}
+                            className="flex items-center justify-between text-xs text-foreground bg-background/80 px-2.5 py-2 rounded-lg border border-border/40 shadow-2xs"
+                          >
+                            <span className="flex items-center gap-2 font-medium truncate pr-2">
+                              {childImg ? (
+                                <img
+                                  src={childImg}
+                                  alt={comp.child_name || "item"}
+                                  className="w-7 h-7 rounded-md object-cover border border-border shrink-0"
+                                />
+                              ) : (
+                                <span className="text-base shrink-0">{comp.child_emoji || "🍽️"}</span>
+                              )}
+                              <span className="truncate">{comp.child_name}</span>
+                            </span>
+                            <span className="font-bold text-primary bg-primary/10 px-2 py-0.5 rounded shrink-0">
+                              x{comp.quantity}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -422,17 +526,17 @@ export default function CombosPage() {
                   <div className="flex items-baseline justify-between pt-1">
                     <div>
                       <span className="text-xs text-muted-foreground block">Precio Combo</span>
-                      <span className="text-2xl font-black text-primary">
+                      <span className="text-xl font-black text-primary">
                         {combo.item.price.toLocaleString("es-PY")} Gs.
                       </span>
                     </div>
 
                     {savings > 0 && (
                       <div className="text-right">
-                        <span className="text-xs text-emerald-500 font-semibold block">
+                        <span className="text-[11px] text-emerald-600 font-semibold block">
                           Ahorro del cliente
                         </span>
-                        <span className="text-xs font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        <span className="text-xs font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
                           -{savings.toLocaleString("es-PY")} Gs.
                         </span>
                       </div>
@@ -441,7 +545,7 @@ export default function CombosPage() {
                 </div>
 
                 {/* Footer Buttons */}
-                <div className="p-4 bg-muted/20 border-t border-border flex items-center justify-end gap-2">
+                <div className="p-3.5 bg-muted/20 border-t border-border flex items-center justify-end gap-2">
                   <button
                     onClick={() => openEditModal(combo)}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition"
@@ -466,22 +570,28 @@ export default function CombosPage() {
       {/* Create / Edit Combo Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
-          <div className="bg-card border border-border w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden my-8">
-            <div className="p-6 border-b border-border flex items-center justify-between">
+          <div className="bg-card border border-border w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden my-8 max-h-[92vh] flex flex-col">
+            <div className="p-5 border-b border-border flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-foreground">
                   {editingCombo ? "Editar Combo" : "Nuevo Combo Promocional"}
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Ingresa los datos principales y selecciona los productos incluidos.
+                  Combina hamburguesas, pizzas, papas y bebidas con sus fotos y precio especial.
                 </p>
               </div>
-              <span className="text-3xl">{form.emoji || "🎁"}</span>
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden border border-border shrink-0">
+                {isImageUrl(form.emoji) ? (
+                  <img src={form.emoji} alt="Combo" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-2xl">{form.emoji || "🎁"}</span>
+                )}
+              </div>
             </div>
 
-            <form onSubmit={handleSaveCombo} className="p-6 space-y-6">
+            <form onSubmit={handleSaveCombo} className="p-6 space-y-5 overflow-y-auto flex-1">
               {formError && (
-                <div className="p-3 bg-destructive/10 text-destructive text-xs rounded-lg">
+                <div className="p-3 bg-destructive/10 text-destructive text-xs rounded-lg border border-destructive/20">
                   {formError}
                 </div>
               )}
@@ -489,36 +599,49 @@ export default function CombosPage() {
               {/* Main Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Nombre del Combo</label>
+                  <label className="text-xs font-semibold text-foreground">Nombre del Combo *</label>
                   <input
                     type="text"
-                    placeholder="Ej: Combo 2 Litros Gaseosa + Pizza"
+                    placeholder="Ej: Combo Burger Doble + Papas + Coca Cola"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Emoji / Icono</label>
+                  <label className="text-xs font-semibold text-foreground">Stock Disponible</label>
                   <input
-                    type="text"
-                    placeholder="🎁, 🍕, 🍺"
-                    value={form.emoji}
-                    onChange={(e) => setForm({ ...form, emoji: e.target.value })}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    type="number"
+                    min="0"
+                    placeholder="50"
+                    value={form.stock}
+                    onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Precio de Venta del Combo (Gs.) *</label>
+                  <input
+                    type="number"
+                    placeholder="Ej: 45000"
+                    value={form.price}
+                    onChange={(e) => setForm({ ...form, price: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-foreground">Categoría del Menú</label>
                   <select
                     value={form.category_id}
                     onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="">Sin categoría</option>
                     {categories.map((c) => (
@@ -528,147 +651,217 @@ export default function CombosPage() {
                     ))}
                   </select>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Precio del Combo (Gs)</label>
-                  <input
-                    type="number"
-                    placeholder="Ej: 45000"
-                    value={form.price}
-                    onChange={(e) => setForm({ ...form, price: e.target.value })}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Descripción</label>
-                <textarea
-                  rows={2}
-                  placeholder="Detalles del combo para el cliente..."
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              {/* Combo Component Builder */}
-              <div className="space-y-3 pt-2 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                      <ShoppingBag className="w-4 h-4 text-primary" />
-                      Productos Incluidos en el Combo
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Suma individual actual:{" "}
-                      <span className="font-semibold text-foreground">
-                        {componentsOriginalTotal.toLocaleString("es-PY")} Gs.
-                      </span>
-                    </p>
+              {/* Combo Image Selection */}
+              <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-3.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-primary" /> Foto o Imagen del Combo
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-lg cursor-pointer hover:opacity-90 transition shadow-xs">
+                    <Upload className="w-3.5 h-3.5" /> Subir foto
+                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                  </label>
+                  <div className="flex items-center gap-1.5 overflow-x-auto flex-1 pb-0.5">
+                    {PRESET_COMBO_IMAGES.map((img) => (
+                      <button
+                        key={img.name}
+                        type="button"
+                        onClick={() => setForm({ ...form, emoji: img.url })}
+                        className={cn(
+                          "relative h-8 w-8 shrink-0 rounded-lg overflow-hidden border border-border hover:scale-105 transition",
+                          form.emoji === img.url && "ring-2 ring-primary border-primary"
+                        )}
+                        title={img.name}
+                      >
+                        <img src={img.url} alt={img.name} className="h-full w-full object-cover" />
+                      </button>
+                    ))}
                   </div>
                 </div>
+              </div>
 
-                {/* Add product dropdown */}
-                <div className="flex items-center gap-2">
-                  <select
-                    id="productSelect"
-                    defaultValue=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        addComponentToSelection(e.target.value);
-                        e.target.value = "";
-                      }
-                    }}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="" disabled>
-                      + Selecciona un producto para agregar al combo...
-                    </option>
-                    {availableProducts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.emoji || "🍽️"} {p.name} - ({p.price.toLocaleString("es-PY")} Gs.)
-                      </option>
-                    ))}
-                  </select>
+              {/* Visual Product Component Picker */}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <ShoppingBag className="w-4 h-4 text-primary" />
+                      Productos Incluidos en el Combo
+                    </span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Suma individual: <strong className="text-foreground">{componentsOriginalTotal.toLocaleString("es-PY")} Gs.</strong>
+                    </span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Toca cualquier producto de la lista con su foto para agregarlo al combo:
+                  </p>
                 </div>
 
-                {/* Selected Products List */}
-                {selectedComponents.length === 0 ? (
-                  <p className="text-xs text-amber-500 italic bg-amber-500/10 p-3 rounded-lg border border-amber-500/20">
-                    Aún no has agregado componentes. Selecciona productos arriba.
-                  </p>
-                ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {selectedComponents.map((comp) => {
-                      const prod = availableProducts.find((p) => p.id === comp.productId);
-                      if (!prod) return null;
+                {/* Search in products */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Buscar hamburguesa, pizza, papa, gaseosa..."
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 bg-background border border-input rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Available Products Visual Grid with Dish Images */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1 border border-border/60 rounded-xl p-2 bg-muted/20">
+                  {filteredAvailableProducts.length === 0 ? (
+                    <p className="col-span-2 text-center text-xs text-muted-foreground py-6">
+                      No se encontraron productos disponibles.
+                    </p>
+                  ) : (
+                    filteredAvailableProducts.map((p) => {
+                      const dishImg = getDishImage(p);
+                      const cleanName = getCleanName(p.name);
+                      const isSelected = selectedComponents.some((c) => c.productId === p.id);
 
                       return (
                         <div
-                          key={comp.productId}
-                          className="flex items-center justify-between bg-muted/50 p-2.5 rounded-xl border border-border text-sm"
+                          key={p.id}
+                          className={cn(
+                            "flex items-center justify-between p-2 rounded-lg border transition-all text-xs bg-card hover:border-primary/50",
+                            isSelected && "border-primary/60 bg-primary/5"
+                          )}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">{prod.emoji || "🍽️"}</span>
-                            <div>
-                              <p className="font-medium text-foreground">{prod.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {prod.price.toLocaleString("es-PY")} Gs. c/u
+                          <div className="flex items-center gap-2.5 min-w-0 pr-1">
+                            {dishImg ? (
+                              <img
+                                src={dishImg}
+                                alt={cleanName}
+                                className="w-9 h-9 rounded-lg object-cover border border-border shadow-2xs shrink-0"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center text-lg shrink-0">
+                                {p.emoji || "🍽️"}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-semibold text-foreground truncate">{cleanName}</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                Gs. {p.price.toLocaleString("es-PY")}
                               </p>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center border border-input rounded-lg overflow-hidden bg-background">
-                              <button
-                                type="button"
-                                onClick={() => updateComponentQuantity(comp.productId, comp.quantity - 1)}
-                                className="px-2.5 py-1 text-xs font-bold hover:bg-muted"
-                              >
-                                -
-                              </button>
-                              <span className="px-3 text-xs font-bold">{comp.quantity}</span>
-                              <button
-                                type="button"
-                                onClick={() => updateComponentQuantity(comp.productId, comp.quantity + 1)}
-                                className="px-2.5 py-1 text-xs font-bold hover:bg-muted"
-                              >
-                                +
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => removeComponent(comp.productId)}
-                              className="text-xs text-destructive hover:underline"
-                            >
-                              Quitar
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => addComponentToSelection(p.id)}
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition shrink-0",
+                              isSelected
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground"
+                            )}
+                          >
+                            <Plus className="w-3 h-3" />
+                            Agregar
+                          </button>
                         </div>
                       );
-                    })}
-                  </div>
-                )}
+                    })
+                  )}
+                </div>
+
+                {/* Selected Products List */}
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    Componentes seleccionados ({selectedComponents.length}):
+                  </p>
+                  {selectedComponents.length === 0 ? (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 p-3 rounded-lg border border-amber-500/20 text-center">
+                      Aún no has agregado componentes. Toca "Agregar" en los productos arriba.
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {selectedComponents.map((comp) => {
+                        const prod = availableProducts.find((p) => p.id === comp.productId);
+                        if (!prod) return null;
+                        const dishImg = getDishImage(prod);
+                        const cleanName = getCleanName(prod.name);
+
+                        return (
+                          <div
+                            key={comp.productId}
+                            className="flex items-center justify-between bg-muted/60 p-2.5 rounded-xl border border-border text-xs"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              {dishImg ? (
+                                <img
+                                  src={dishImg}
+                                  alt={cleanName}
+                                  className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-base shrink-0">
+                                  {prod.emoji || "🍽️"}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-semibold text-foreground truncate">{cleanName}</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Gs. {prod.price.toLocaleString("es-PY")} c/u
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2.5 shrink-0">
+                              <div className="flex items-center border border-input rounded-lg overflow-hidden bg-background">
+                                <button
+                                  type="button"
+                                  onClick={() => updateComponentQuantity(comp.productId, comp.quantity - 1)}
+                                  className="px-2 py-1 text-xs font-bold hover:bg-muted"
+                                >
+                                  -
+                                </button>
+                                <span className="px-2.5 text-xs font-bold">{comp.quantity}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateComponentQuantity(comp.productId, comp.quantity + 1)}
+                                  className="px-2 py-1 text-xs font-bold hover:bg-muted"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => removeComponent(comp.productId)}
+                                className="text-xs text-destructive hover:underline font-medium"
+                              >
+                                Quitar
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Actions */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <div className="flex justify-end gap-3 pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-muted text-muted-foreground hover:bg-muted/80 rounded-lg text-sm font-medium transition"
+                  className="px-4 py-2.5 bg-muted text-muted-foreground hover:bg-muted/80 rounded-xl text-xs font-semibold transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition shadow"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-xs font-bold transition shadow"
                 >
-                  {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {editingCombo ? "Guardar Cambios" : "Crear Combo"}
                 </button>
               </div>
