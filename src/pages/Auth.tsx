@@ -5,12 +5,12 @@ import { useAuth } from "@/contexts/useAuth";
 
 function getAuthErrorMessage(error: Error) {
   const message = error.message.toLowerCase();
-  if (message.includes("invalid login credentials")) return "El correo o la contraseña no son correctos.";
+  if (message.includes("invalid login credentials")) return "El correo o la contraseña no coinciden con una cuenta registrada.";
   if (message.includes("email not confirmed")) return "Debes confirmar tu correo electrónico antes de iniciar sesión.";
   if (message.includes("user already registered")) return "Ya existe una cuenta con ese correo electrónico.";
   if (message.includes("password should be at least")) return "La contraseña debe tener al menos 6 caracteres.";
   if (message.includes("rate limit")) return "Demasiados intentos. Espera unos minutos y vuelve a intentar.";
-  return "No se pudo completar la autenticación. Revisa los datos e inténtalo de nuevo.";
+  return error.message || "No se pudo completar la autenticación. Revisa los datos e inténtalo de nuevo.";
 }
 
 const features = [

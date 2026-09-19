@@ -6,6 +6,7 @@ import { useRealtimeNotifications } from "@/hooks/useRealtimeNotifications";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RestaurantSwitcher } from "@/components/RestaurantSwitcher";
+import { getRoleDetail } from "@/lib/role-permissions";
 
 interface TopBarProps {
   collapsed: boolean;
@@ -18,7 +19,9 @@ const requestLabels: Record<string, string> = {
 };
 
 export default function TopBar({ collapsed }: TopBarProps) {
-  const { profile, user, restaurant, signOut } = useAuth();
+  const { profile, user, restaurant, membership, signOut } = useAuth();
+  const userRole = membership?.role || profile?.role || "cajero";
+  const roleDetail = getRoleDetail(userRole);
   const { data: notifications = [] } = useServiceRequests();
   const { playNotificationSound } = useNotificationSound();
   
@@ -111,13 +114,18 @@ export default function TopBar({ collapsed }: TopBarProps) {
         <div className="w-px h-8 bg-border mx-1" />
 
         {/* User */}
-        <button onClick={() => void signOut()} title="Cerrar sesión" className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-secondary transition-colors">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <User className="w-4 h-4 text-primary-foreground" />
+        <button onClick={() => void signOut()} title="Cerrar sesión" className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-secondary transition-colors border border-transparent hover:border-border">
+          <div className="w-8 h-8 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-600 dark:text-orange-400 font-bold flex items-center justify-center text-xs">
+            {(profile?.full_name || user?.email || "U").slice(0, 2).toUpperCase()}
           </div>
           <div className="hidden md:block text-left">
-            <p className="text-sm font-medium text-foreground leading-tight">{profile?.full_name || user?.email || "Usuario"}</p>
-            <p className="text-xs text-muted-foreground leading-tight">{restaurant?.name || profile?.role || "Staff"}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-semibold text-foreground leading-tight">{profile?.full_name || user?.email?.split("@")[0] || "Usuario"}</p>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${roleDetail.badgeBg} ${roleDetail.badgeColor}`}>
+                {roleDetail.label}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{restaurant?.name || "Restaurante"}</p>
           </div>
         </button>
       </div>

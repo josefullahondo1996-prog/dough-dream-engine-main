@@ -17,7 +17,12 @@ import {
   Check,
   X,
   Sparkles,
+  Lock,
+  Eye,
+  EyeOff,
+  Key,
 } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
@@ -60,7 +65,9 @@ export default function Personal() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberEmail, setNewMemberEmail] = useState("");
-  const [newMemberRole, setNewMemberRole] = useState<RoleName>("mesero");
+  const [newMemberPassword, setNewMemberPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [newMemberRole, setNewMemberRole] = useState<RoleName>("cajero");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadMembers = useCallback(async () => {
@@ -96,11 +103,14 @@ export default function Personal() {
     }
 
     const profileMap = Object.fromEntries((profileRows ?? []).map((profile) => [profile.id, profile]));
-    const mappedMembers = (memberRows ?? []).map((member) => ({
-      ...member,
-      profileName: profileMap[member.user_id]?.full_name || "Sin nombre",
-      profileEmail: member.user_id.slice(0, 8) + "@gastroflow.app",
-    }));
+    const mappedMembers = (memberRows ?? []).map((member) => {
+      const profile = profileMap[member.user_id] as any;
+      return {
+        ...member,
+        profileName: profile?.full_name || "Sin nombre",
+        profileEmail: profile?.email || member.user_id.slice(0, 8) + "@gastroflow.app",
+      };
+    });
 
     setMembers(mappedMembers);
     setProfiles(profileRows ?? []);
@@ -186,51 +196,91 @@ export default function Personal() {
       toast.error("Ingresa el nombre del empleado.");
       return;
     }
+    if (!newMemberEmail.trim()) {
+      toast.error("Ingresa el correo electrónico para el acceso del empleado.");
+      return;
+    }
+    if (newMemberPassword.trim().length < 6) {
+      toast.error("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
 
     try {
       setIsSubmitting(true);
 
-      // Intento 1: Llamar a la función RPC add_restaurant_member
-      try {
-        const { data: rpcData, error: rpcErr } = await supabase.rpc("add_restaurant_member", {
-          p_restaurant_id: restaurant.id,
-          p_member_email: newMemberEmail.trim() || `${newMemberName.toLowerCase().replace(/\s+/g, "")}@gastro.app`,
-          p_member_name: newMemberName.trim(),
-          p_member_role: newMemberRole,
-        });
+      const supabaseUrl =
+        import.meta.env.VITE_SUPABASE_URL || "https://aftwzlwlqkvobwoiwopy.supabase.co";
+      const supabaseKey =
+        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmdHd6bHdscWt2b2J3b2l3b3B5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MDAzNjIsImV4cCI6MjEwNDQ3NjM2Mn0.b5CnTY9PdXovUAzjEdANx-SYHH27syOq_MifA5caHmk";
 
-        if (!rpcErr && rpcData) {
-          toast.success(`¡Empleado "${newMemberName}" registrado como ${ROLE_DETAILS[newMemberRole].label}!`);
-          setIsAddModalOpen(false);
-          setNewMemberName("");
-          setNewMemberEmail("");
-          await loadMembers();
-          return;
+      // Cliente temporal aislado para crear la cuenta en GoTrue Auth sin desconectar al admin
+      const tempAuthClient = createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      });
+
+      const { data: signUpData, error: signUpError } = await tempAuthClient.auth.signUp({
+        email: newMemberEmail.trim(),
+        password: newMemberPassword.trim(),
+        options: {
+          data: {
+            full_name: newMemberName.trim(),
+          },
+        },
+      });
+
+      let targetUserId = signUpData.user?.id;
+
+      if (signUpError) {
+        if (signUpError.message.toLowerCase().includes("already registered")) {
+          // Si el usuario ya existe en Supabase Auth, buscarlo en profiles
+          const { data: existingProfile } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("email", newMemberEmail.trim())
+            .maybeSingle();
+
+          if (existingProfile) {
+            targetUserId = existingProfile.id;
+          } else {
+            throw new Error(
+              "El correo ya existe en Supabase. Si necesitas cambiar la clave, hazlo desde Supabase Auth."
+            );
+          }
+        } else {
+          throw signUpError;
         }
-      } catch {
-        // Fallback a inserción directa
       }
 
-      // Intento 2: Inserción directa
-      const fakeUserId = crypto.randomUUID();
-      await supabase.from("profiles").insert({
-        id: fakeUserId,
-        full_name: newMemberName.trim(),
-        role: newMemberRole,
-      });
+      if (targetUserId) {
+        // Actualizar datos del perfil
+        await supabase.from("profiles").upsert({
+          id: targetUserId,
+          full_name: newMemberName.trim(),
+          email: newMemberEmail.trim(),
+          role: newMemberRole,
+        });
 
-      const { error: memberInsertErr } = await supabase.from("restaurant_members").insert({
-        restaurant_id: restaurant.id,
-        user_id: fakeUserId,
-        role: newMemberRole,
-      });
+        // Vincular al restaurante con el rol seleccionado
+        const { error: memberErr } = await supabase.from("restaurant_members").upsert({
+          restaurant_id: restaurant.id,
+          user_id: targetUserId,
+          role: newMemberRole,
+        });
 
-      if (memberInsertErr) throw memberInsertErr;
+        if (memberErr) throw memberErr;
+      }
 
-      toast.success(`¡Empleado "${newMemberName}" agregado con éxito!`);
+      toast.success(
+        `¡Empleado "${newMemberName}" registrado con éxito! Ya puede iniciar sesión con ${newMemberEmail.trim()}`
+      );
       setIsAddModalOpen(false);
       setNewMemberName("");
       setNewMemberEmail("");
+      setNewMemberPassword("");
       await loadMembers();
     } catch (err: any) {
       toast.error(err.message || "Error al registrar empleado");
@@ -398,7 +448,7 @@ export default function Personal() {
                               </Badge>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground">ID: {member.user_id.slice(0, 12)}...</p>
+                          <p className="text-xs text-muted-foreground">{member.profileEmail || `ID: ${member.user_id.slice(0, 12)}...`}</p>
                         </div>
                       </div>
 
@@ -524,18 +574,61 @@ export default function Personal() {
                 />
               </div>
 
-              {/* Correo */}
+              {/* Correo de Acceso */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">
-                  Correo Electrónico (opcional)
+                  Correo Electrónico (Usuario para iniciar sesión) *
                 </label>
                 <input
                   type="email"
-                  placeholder="marcelo@restaurante.com"
+                  required
+                  placeholder="cajero@turestaurante.com"
                   value={newMemberEmail}
                   onChange={(e) => setNewMemberEmail(e.target.value)}
                   className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                 />
+              </div>
+
+              {/* Contraseña */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-foreground">
+                    Contraseña de Acceso *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const randomPass = Math.random().toString(36).slice(-8) + "123";
+                      setNewMemberPassword(randomPass);
+                      setShowPassword(true);
+                      toast.info(`Contraseña generada: ${randomPass}`);
+                    }}
+                    className="text-[11px] text-orange-500 hover:text-orange-600 font-medium"
+                  >
+                    Generar clave
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={6}
+                    placeholder="Mínimo 6 caracteres"
+                    value={newMemberPassword}
+                    onChange={(e) => setNewMemberPassword(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-card pl-3.5 pr-10 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  El empleado usará este correo y contraseña para entrar a GastroFlow.
+                </p>
               </div>
 
               {/* Selector de Rol con Cards */}

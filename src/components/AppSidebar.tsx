@@ -1,119 +1,119 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   UtensilsCrossed,
-  ChefHat,
   Grid3X3,
-  QrCode,
   Bell,
   CalendarCheck,
   ClipboardList,
-  FileText,
   Users,
   UserCheck,
   Truck,
   Wallet,
   CreditCard,
-  Receipt,
   BarChart3,
-  TrendingUp,
-  PieChart,
-  Package,
-  FileBarChart,
-  DollarSign,
   Settings,
   ExternalLink,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Pizza,
-  MapPin,
-  Star,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RestaurantSwitcher } from "@/components/RestaurantSwitcher";
+import { useAuth } from "@/contexts/useAuth";
+import { canAccessPermission, getRoleDetail, type PermissionKey } from "@/lib/role-permissions";
 
 interface SubItem {
   label: string;
   path: string;
   icon?: React.ElementType;
+  permission?: PermissionKey;
 }
 
 interface MenuItem {
   label: string;
   icon: React.ElementType;
   path?: string;
+  permission?: PermissionKey;
   subItems?: SubItem[];
 }
 
-const menuItems: MenuItem[] = [
-  { label: "Panel", icon: LayoutDashboard, path: "/" },
+const allMenuItems: MenuItem[] = [
+  { label: "Panel", icon: LayoutDashboard, path: "/", permission: "reports-pnl" },
   {
     label: "Menú",
     icon: UtensilsCrossed,
+    permission: "menu-management",
     subItems: [
-      { label: "Menús", path: "/menus" },
-      { label: "Elementos de menú", path: "/menu-items" },
-      { label: "Categorías", path: "/categorias" },
-      { label: "Modificadores", path: "/modificadores" },
-      { label: "Unidades de medida", path: "/unidades" },
-      { label: "Combos y Paquetes", path: "/combos" },
+      { label: "Menús", path: "/menus", permission: "menu-management" },
+      { label: "Elementos de menú", path: "/menu-items", permission: "menu-management" },
+      { label: "Categorías", path: "/categorias", permission: "menu-management" },
+      { label: "Modificadores", path: "/modificadores", permission: "menu-management" },
+      { label: "Unidades de medida", path: "/unidades", permission: "menu-management" },
+      { label: "Combos y Paquetes", path: "/combos", permission: "menu-management" },
     ],
   },
   {
     label: "Mesas",
     icon: Grid3X3,
+    permission: "tables-management",
     subItems: [
-      { label: "Áreas", path: "/areas" },
-      { label: "Mesas", path: "/mesas" },
-      { label: "Códigos QR", path: "/codigos-qr" },
+      { label: "Áreas", path: "/areas", permission: "tables-management" },
+      { label: "Mesas", path: "/mesas", permission: "tables-management" },
+      { label: "Códigos QR", path: "/codigos-qr", permission: "tables-management" },
     ],
   },
-  { label: "Solicitudes", icon: Bell, path: "/solicitudes" },
-  { label: "Reservaciones", icon: CalendarCheck, path: "/reservaciones" },
+  { label: "Solicitudes", icon: Bell, path: "/solicitudes", permission: "tables-management" },
+  { label: "Reservaciones", icon: CalendarCheck, path: "/reservaciones", permission: "tables-management" },
   {
     label: "Órdenes",
     icon: ClipboardList,
+    permission: "orders-kot",
     subItems: [
-      { label: "Órdenes", path: "/ordenes" },
-      { label: "Facturación", path: "/facturacion" },
-      { label: "Kot", path: "/kot" },
+      { label: "Órdenes", path: "/ordenes", permission: "orders-kot" },
+      { label: "Facturación", path: "/facturacion", permission: "billing" },
+      { label: "Kot", path: "/kot", permission: "orders-kot" },
     ],
   },
-  { label: "Clientes", icon: Users, path: "/clientes" },
-  { label: "Personal", icon: UserCheck, path: "/personal" },
-  { label: "Delivery", icon: Truck, path: "/delivery" },
+  { label: "Clientes", icon: Users, path: "/clientes", permission: "billing" },
+  { label: "Personal", icon: UserCheck, path: "/personal", permission: "staff-management" },
+  { label: "Delivery", icon: Truck, path: "/delivery", permission: "orders-kot" },
   {
     label: "Gastos",
     icon: Wallet,
+    permission: "expenses",
     subItems: [
-      { label: "Gastos", path: "/gastos" },
-      { label: "Categorías de gastos", path: "/categorias-gastos" },
+      { label: "Gastos", path: "/gastos", permission: "expenses" },
+      { label: "Categorías de gastos", path: "/categorias-gastos", permission: "expenses" },
     ],
   },
   {
-    label: "Pagos",
+    label: "Pagos & Caja",
     icon: CreditCard,
+    permission: "cash-register",
     subItems: [
-      { label: "Caja", path: "/caja" },
-      { label: "Pagos", path: "/pagos" },
-      { label: "Debidos", path: "/debidos" },
+      { label: "Caja", path: "/caja", permission: "cash-register" },
+      { label: "Pagos", path: "/pagos", permission: "billing" },
+      { label: "Debidos", path: "/debidos", permission: "billing" },
     ],
   },
   {
     label: "Informes",
     icon: BarChart3,
+    permission: "reports-pnl",
     subItems: [
-      { label: "Ganancias y Pérdidas", path: "/informe-perdidas-ganancias" },
-      { label: "Ventas", path: "/informe-ventas" },
-      { label: "Artículos", path: "/informe-articulos" },
-      { label: "Categorías", path: "/informe-categorias" },
-      { label: "Gastos", path: "/informe-gastos" },
-      { label: "Auditoría", path: "/auditoria" },
+      { label: "Ganancias y Pérdidas", path: "/informe-perdidas-ganancias", permission: "reports-pnl" },
+      { label: "Ventas", path: "/informe-ventas", permission: "reports-pnl" },
+      { label: "Artículos", path: "/informe-articulos", permission: "reports-pnl" },
+      { label: "Categorías", path: "/informe-categorias", permission: "reports-pnl" },
+      { label: "Gastos", path: "/informe-gastos", permission: "reports-pnl" },
+      { label: "Auditoría", path: "/auditoria", permission: "reports-pnl" },
     ],
   },
-  { label: "Ajustes", icon: Settings, path: "/ajustes" },
+  { label: "Ajustes", icon: Settings, path: "/ajustes", permission: "restaurant-config" },
 ];
 
 interface AppSidebarProps {
@@ -123,7 +123,30 @@ interface AppSidebarProps {
 
 export default function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const location = useLocation();
-  const [openMenus, setOpenMenus] = useState<string[]>(["Menú"]);
+  const { membership, profile } = useAuth();
+  const [openMenus, setOpenMenus] = useState<string[]>(["Menú", "Pagos & Caja", "Órdenes"]);
+
+  const userRole = membership?.role || profile?.role || "cajero";
+  const roleDetail = getRoleDetail(userRole);
+
+  // Filtrar menús según los permisos reales del rol
+  const allowedMenuItems = useMemo(() => {
+    return allMenuItems
+      .map((item) => {
+        if (item.subItems) {
+          const validSubs = item.subItems.filter(
+            (sub) => !sub.permission || canAccessPermission(userRole, sub.permission)
+          );
+          if (validSubs.length === 0) return null;
+          return { ...item, subItems: validSubs };
+        }
+        if (item.permission && !canAccessPermission(userRole, item.permission)) {
+          return null;
+        }
+        return item;
+      })
+      .filter(Boolean) as MenuItem[];
+  }, [userRole]);
 
   const toggleMenu = (label: string) => {
     setOpenMenus((prev) =>
@@ -148,22 +171,35 @@ export default function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
           <Pizza className="w-5 h-5 text-primary-foreground" />
         </div>
         {!collapsed && (
-          <span className="text-lg font-bold text-sidebar-accent-foreground truncate animate-fade-in">
-            GastroApp
-          </span>
+          <div className="flex flex-col truncate">
+            <span className="text-base font-bold text-sidebar-accent-foreground truncate leading-tight">
+              GastroFlow
+            </span>
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              POS & Gastronomía
+            </span>
+          </div>
         )}
       </div>
 
-      {/* Restaurant / Branch selector */}
+      {/* Selector de Restaurante */}
       {!collapsed && (
         <div className="px-3 py-2.5 border-b border-sidebar-border shrink-0">
           <RestaurantSwitcher variant="sidebar" />
+          {/* Badge del Rol Activo */}
+          <div className="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary/60 text-xs">
+            <Shield className="w-3.5 h-3.5 text-primary" />
+            <span className="text-[11px] text-muted-foreground">Rol:</span>
+            <span className="text-[11px] font-semibold text-foreground capitalize">
+              {roleDetail.label}
+            </span>
+          </div>
         </div>
       )}
 
-      {/* Nav */}
+      {/* Navegación Filtrada por Rol */}
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5 scrollbar-thin">
-        {menuItems.map((item) => {
+        {allowedMenuItems.map((item) => {
           const Icon = item.icon;
           const hasSubItems = item.subItems && item.subItems.length > 0;
           const isOpen = openMenus.includes(item.label);
@@ -177,7 +213,7 @@ export default function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
                     active
-                      ? "bg-sidebar-accent text-primary"
+                      ? "bg-sidebar-accent text-primary font-medium"
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   )}
                 >
@@ -242,12 +278,12 @@ export default function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             className="flex items-center gap-2 px-3 py-2 text-sm text-sidebar-muted hover:text-sidebar-accent-foreground transition-colors"
           >
             <ExternalLink className="w-4 h-4" />
-            <span>Sitio de clientes</span>
+            <span>Menú Digital</span>
           </a>
         </div>
       )}
 
-      {/* Toggle button */}
+      {/* Botón expandir/colapsar */}
       <button
         onClick={onToggle}
         className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:scale-110 transition-transform"

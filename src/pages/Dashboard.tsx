@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DollarSign, ShoppingBag, TrendingUp, Users, AlertCircle, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import StatCard from "@/components/StatCard";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +17,12 @@ const colors = ["hsl(25, 95%, 53%)", "hsl(142, 71%, 45%)", "hsl(210, 80%, 55%)",
 const money = (value: number) => `Gs. ${value.toLocaleString()}`;
 
 export default function Dashboard() {
-  const { restaurant } = useAuth();
+  const { restaurant, membership, profile } = useAuth();
+  const userRole = membership?.role || profile?.role;
+
+  if (userRole === "cajero") return <Navigate to="/caja" replace />;
+  if (userRole === "cocina") return <Navigate to="/kot" replace />;
+  if (userRole === "mesero") return <Navigate to="/mesas" replace />;
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [lines, setLines] = useState<Line[]>([]);

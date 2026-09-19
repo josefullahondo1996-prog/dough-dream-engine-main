@@ -1,4 +1,4 @@
-// Fresh Build Deployment v1.0.2 - Dish Image Upload Enabled
+// Fresh Build Deployment v1.0.3 - Full Role & Permissions Security
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import AppLayout from "./components/AppLayout";
-import PlaceholderPage from "./components/PlaceholderPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 
@@ -48,50 +47,91 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Suspense fallback={
-            <div className="flex h-screen w-screen items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-            </div>
-          }>
+          <Suspense
+            fallback={
+              <div className="flex h-screen w-screen items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            }
+          >
             <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/menu/:slug" element={<DigitalMenu />} />
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/menus" element={<MenusPage />} />
-            <Route path="/menu-items" element={<MenuItems />} />
-            <Route path="/categorias" element={<Categories />} />
-            <Route path="/modificadores" element={<ModificadoresPage />} />
-            <Route path="/unidades" element={<UnitsPage />} />
-            <Route path="/combos" element={<CombosPage />} />
-            <Route path="/areas" element={<Areas />} />
-            <Route path="/mesas" element={<Tables />} />
-            <Route path="/codigos-qr" element={<QrCodes />} />
-            <Route path="/solicitudes" element={<ServiceRequests />} />
-            <Route path="/reservaciones" element={<Reservaciones />} />
-            <Route path="/ordenes" element={<Orders />} />
-            <Route path="/facturacion" element={<Billing />} />
-            <Route path="/kot" element={<KOT />} />
-            <Route path="/clientes" element={<Clients />} />
-            <Route path="/personal" element={<Personal />} />
-            <Route path="/delivery" element={<DeliveryPage />} />
-            <Route path="/gastos" element={<Expenses />} />
-            <Route path="/categorias-gastos" element={<ExpenseCategories />} />
-            <Route path="/caja" element={<CashRegister />} />
-            <Route path="/pagos" element={<PagosPage />} />
-            <Route path="/debidos" element={<PagosPage />} />
-            <Route path="/auditoria" element={<AuditLog />} />
-            <Route path="/informes" element={<Reports />} />
-            <Route path="/informe-perdidas-ganancias" element={<Reports />} />
-            <Route path="/informe-ventas" element={<Reports />} />
-            <Route path="/informe-articulos" element={<Reports />} />
-            <Route path="/informe-categorias" element={<Reports />} />
-            <Route path="/informe-gastos" element={<Reports />} />
-            <Route path="/ajustes" element={<Settings />} />
+              {/* Rutas Públicas */}
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/menu/:slug" element={<DigitalMenu />} />
+
+              {/* Rutas Protegidas dentro de la App */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AppLayout />}>
+                  {/* Inicio / Redirección según rol */}
+                  <Route path="/" element={<Dashboard />} />
+
+                  {/* Operaciones de Caja y Cobros */}
+                  <Route element={<ProtectedRoute requiredPermission="cash-register" />}>
+                    <Route path="/caja" element={<CashRegister />} />
+                  </Route>
+
+                  <Route element={<ProtectedRoute requiredPermission="billing" />}>
+                    <Route path="/facturacion" element={<Billing />} />
+                    <Route path="/pagos" element={<PagosPage />} />
+                    <Route path="/debidos" element={<PagosPage />} />
+                    <Route path="/clientes" element={<Clients />} />
+                  </Route>
+
+                  {/* Operaciones de Mesas, Pedidos y Cocina */}
+                  <Route element={<ProtectedRoute requiredPermission="orders-kot" />}>
+                    <Route path="/ordenes" element={<Orders />} />
+                    <Route path="/kot" element={<KOT />} />
+                    <Route path="/delivery" element={<DeliveryPage />} />
+                  </Route>
+
+                  <Route element={<ProtectedRoute requiredPermission="tables-management" />}>
+                    <Route path="/areas" element={<Areas />} />
+                    <Route path="/mesas" element={<Tables />} />
+                    <Route path="/codigos-qr" element={<QrCodes />} />
+                    <Route path="/solicitudes" element={<ServiceRequests />} />
+                    <Route path="/reservaciones" element={<Reservaciones />} />
+                  </Route>
+
+                  {/* Configuración de Menús y Platos (Admin / Gerente) */}
+                  <Route element={<ProtectedRoute requiredPermission="menu-management" />}>
+                    <Route path="/menus" element={<MenusPage />} />
+                    <Route path="/menu-items" element={<MenuItems />} />
+                    <Route path="/categorias" element={<Categories />} />
+                    <Route path="/modificadores" element={<ModificadoresPage />} />
+                    <Route path="/unidades" element={<UnitsPage />} />
+                    <Route path="/combos" element={<CombosPage />} />
+                  </Route>
+
+                  {/* Gestión de Personal & Roles (Admin / Gerente) */}
+                  <Route element={<ProtectedRoute requiredPermission="staff-management" />}>
+                    <Route path="/personal" element={<Personal />} />
+                  </Route>
+
+                  {/* Gastos Operativos (Admin / Gerente) */}
+                  <Route element={<ProtectedRoute requiredPermission="expenses" />}>
+                    <Route path="/gastos" element={<Expenses />} />
+                    <Route path="/categorias-gastos" element={<ExpenseCategories />} />
+                  </Route>
+
+                  {/* Informes y Finanzas (Admin / Gerente) */}
+                  <Route element={<ProtectedRoute requiredPermission="reports-pnl" />}>
+                    <Route path="/informes" element={<Reports />} />
+                    <Route path="/informe-perdidas-ganancias" element={<Reports />} />
+                    <Route path="/informe-ventas" element={<Reports />} />
+                    <Route path="/informe-articulos" element={<Reports />} />
+                    <Route path="/informe-categorias" element={<Reports />} />
+                    <Route path="/informe-gastos" element={<Reports />} />
+                    <Route path="/auditoria" element={<AuditLog />} />
+                  </Route>
+
+                  {/* Ajustes Globales del Restaurante (Admin / Gerente) */}
+                  <Route element={<ProtectedRoute requiredPermission="restaurant-config" />}>
+                    <Route path="/ajustes" element={<Settings />} />
+                  </Route>
+                </Route>
               </Route>
-            </Route>
-            <Route path="*" element={<NotFound />} />
+
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </BrowserRouter>
